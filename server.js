@@ -8,8 +8,7 @@ const port = process.env.PORT || 3000;
 
 mongoose
   .connect(
-    `mongodb+srv://ghodsednyaneshwar:${process.env.DB_PASS}@cluster0.4qcnpzb.mongodb.net/`
-  )
+    `mongodb+srv://vionsys-ems:${process.env.DB_PASS}@cluster0.nql4xos.mongodb.net/ems`)
   .then(() => {
     console.log("DB connected successfully");
   });
