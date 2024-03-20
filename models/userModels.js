@@ -32,7 +32,10 @@ const userSchema = new mongoose.Schema({
   designation: {
     type: String,
   },
-  photo: String,
+  profile: {
+    type:String,
+    required:[true,"Please provide a your profile"]
+  },
   password: {
     type: String,
     required: [true, "Please provide your password"],
