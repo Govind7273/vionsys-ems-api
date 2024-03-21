@@ -135,8 +135,7 @@ exports.excel = async (req, res, next) => {
   try {
     const attendance = await Getattendence();
     await CreatExcel(attendance);
-
-    res.status(200).json({ message: "excel is created", });
+    res.status(200).json({ message: "excel is created", attendance });
   } catch (error) {
     console.log(error);
     handleError(res, 401, error.message);
