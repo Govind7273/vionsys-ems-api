@@ -27,6 +27,7 @@ router.put("/attendance/:userId", attendanceController.updateAttendance);
 
 // excel sheet route
 router.get("/attendance/Excel/getExcel", attendanceController.excel);
+router.get("/attendance/Excel/getExcel/:userId", attendanceController.excelById);
 
 
 

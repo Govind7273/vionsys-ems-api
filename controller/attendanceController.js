@@ -1,7 +1,7 @@
 const Attendance = require("../models/attendanceModel");
 const Getattendence = require("../utils/Getattendence");
 const CreatExcel = require("../utils/CreateExcel");
-
+const fs = require("fs")
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
     status: "fail",
@@ -135,8 +135,30 @@ exports.excel = async (req, res, next) => {
   try {
     const attendance = await Getattendence();
     await CreatExcel(attendance);
-    res.status(200).json({ message: "excel is created", attendance });
+
+    fs.unlinkSync("Attendance.xlsx")
+    res.status(200).json({
+      message: "excel is created and has been sent by mail",
+      attendance,
+    });
   } catch (error) {
+    fs.unlinkSync("Attendance.xlsx")
+    console.log(error);
+    handleError(res, 401, error.message);
+  }
+};
+
+exports.excelById = async (req, res, next) => {
+  try {
+    const userId = req.params.userId;
+    const attendance = await Getattendence();
+    const filterAttendance = attendance.filter((A) => A._id == userId);
+    await CreatExcel(filterAttendance);
+fs.unlinkSync("Attendance.xlsx")
+    res.status(200).json({ message: "excel by id", userId, filterAttendance });
+    
+  } catch (error) {
+    fs.unlinkSync("Attendance.xlsx")
     console.log(error);
     handleError(res, 401, error.message);
   }
