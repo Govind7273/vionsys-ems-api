@@ -3,8 +3,9 @@ const crypto = require("crypto");
 const sendEmail = require("../utils/email");
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModels");
-const { error } = require("console");
 const HOST="http://localhost:5173"
+const fs=require('fs');
+const { uploadOnCloudinary } = require("../utils/cloudinary");
 
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
@@ -44,13 +45,18 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 exports.signup = async (req, res, next) => {
+  const imagepath=req?.file.path;
   try {
-    const newUser = await User.create({
-      ...req.body,
-      role: undefined,
-    });
+     console.log("image uploading started!!!")
+     const url=await uploadOnCloudinary(imagepath);
+      const newUser = await User.create({
+        ...req.body,
+        role: undefined,
+        profile:url
+      });
 
     createSendToken(newUser, 201, res);
+    
   } catch (error) {
     handleError(res, 401, error.message);
   }
