@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, "Please provide your password"],
-    minlength: 8,
+    minlength: [8,"please enter password of 8 characters"],
     select: false,
   },
   passwordConfirm: {
@@ -105,7 +105,7 @@ userSchema.methods.createPasswordResetToken = function () {
     .update(resetToken)
     .digest("hex");
 
-  console.log(resetToken, this.passwordResetToken);
+  // console.log(resetToken+" - "+ this.passwordResetToken);
 
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
 
