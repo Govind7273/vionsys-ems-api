@@ -1,4 +1,6 @@
 const Attendance = require("../models/attendanceModel");
+const Getattendence = require("../utils/Getattendence");
+const CreatExcel = require("../utils/CreateExcel");
 
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
@@ -66,26 +68,7 @@ exports.createAttendance = async (req, res) => {
 
 exports.getAttendance = async (req, res) => {
   try {
-    const attendance = await Attendance.aggregate([
-      {
-        $group: {
-          _id: "$user",
-          attendances: {
-            $addToSet: "$$ROOT",
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "_id",
-          foreignField: "_id",
-          as: "user",
-        },
-      },
-      { $unwind: "$user" },
-    ]);
-
+    const attendance = await Getattendence();
     res.status(200).json({
       status: "success",
       data: {
@@ -145,5 +128,17 @@ exports.updateAttendance = async (req, res) => {
     });
   } catch (error) {
     handleError(res, 400, error.message);
+  }
+};
+
+exports.excel = async (req, res, next) => {
+  try {
+    const attendance = await Getattendence();
+    await CreatExcel(attendance);
+
+    res.status(200).json({ message: "excel is created", });
+  } catch (error) {
+    console.log(error);
+    handleError(res, 401, error.message);
   }
 };

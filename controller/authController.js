@@ -4,6 +4,7 @@ const sendEmail = require("../utils/email");
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModels");
 const { error } = require("console");
+const HOST="http://localhost:5173"
 
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
@@ -129,9 +130,11 @@ exports.restrictTo = (roles) => {
 
 exports.forgotPassword = async (req, res, next) => {
   try {
+    if(!req.body.email){
+      throw new Error("please enter your Email")
+    }
     // 1) get user based on posted email
     const user = await User.findOne({ email: req.body.email });
-    console.log(user);
     if (!user) {
       throw new Error("User not found !");
     }
@@ -141,9 +144,8 @@ exports.forgotPassword = async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
 
     //3) send it to users email
-    const resetUrl = `${req.protocol}://${req.get(
-      "host"
-    )}/api/v1/users/resetPassword/${resetToken}`;
+    const resetUrl =`${HOST}/ResetPassword/${resetToken}`
+  
 
     const message = `Forgot your password? create new with ${resetUrl}. If you didn't forgot your password, please ignore this email`;
 
@@ -162,6 +164,7 @@ exports.forgotPassword = async (req, res, next) => {
       user.passwordResetExpires = undefined;
       user.passwordResetToken = undefined;
       await user.save({ validateBeforeSave: false });
+      console.log(error)
       throw new Error("Error while sending email.");
     }
   } catch (error) {
@@ -176,12 +179,14 @@ exports.resetPassword = async (req, res, next) => {
       .createHash("sha256")
       .update(req.params.token)
       .digest("hex");
+      console.log(req.params.token)
 
       const user = await User.findOne({
         passwordResetToken: hashedToken,
         passwordResetExpires: { $gt: Date.now() },
       });
-      console.log(user, hashedToken);
+
+      // console.log(user, hashedToken);
       // 2) if token has not expired and there is user - set the new password
       if(!user) {
         throw new Error("token is invalid or has expired")
@@ -201,6 +206,7 @@ exports.resetPassword = async (req, res, next) => {
 
     res.status(200).json({
       status: "success",
+      message:"password reset succesfully",
       token,
     });
 
@@ -208,3 +214,4 @@ exports.resetPassword = async (req, res, next) => {
     handleError(res, 401, error.message);
   }
 };
+
