@@ -1,6 +1,6 @@
 const { promisify } = require("util");
 const crypto = require("crypto");
-const sendEmail = require("../utils/email");
+const {sendEmail} = require("../utils/email");
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModels");
 const HOST="http://localhost:5173"
