@@ -1,7 +1,8 @@
 const Attendance = require("../models/attendanceModel");
 const Getattendence = require("../utils/Getattendence");
 const CreatExcel = require("../utils/CreateExcel");
-const fs = require("fs")
+const moment = require("moment");
+const fs = require("fs");
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
     status: "fail",
@@ -132,17 +133,24 @@ exports.updateAttendance = async (req, res) => {
 };
 
 exports.excel = async (req, res, next) => {
+  console.log(req.body);
   try {
-    const attendance = await Getattendence();
+    const { Format_startDate, Format_endDate } = req.body;
+    console.log(Format_startDate, Format_endDate);
+    if (!Format_startDate || !Format_endDate) {
+      throw new Error("please select the Date Range");
+    }
+
+    // Getting attendance of all users
+    const attendance = await Getattendence(Format_startDate, Format_endDate);
+
+    // Creating Excel from the filtered attendance
     await CreatExcel(attendance);
 
-    fs.unlinkSync("Attendance.xlsx")
     res.status(200).json({
-      message: "excel is created and has been sent by mail",
-      attendance,
+      message: "Excel is created and has been sent by mail",
     });
   } catch (error) {
-    fs.unlinkSync("Attendance.xlsx")
     console.log(error);
     handleError(res, 401, error.message);
   }
@@ -151,14 +159,24 @@ exports.excel = async (req, res, next) => {
 exports.excelById = async (req, res, next) => {
   try {
     const userId = req.params.userId;
-    const attendance = await Getattendence();
-    const filterAttendance = attendance.filter((A) => A._id == userId);
+    console.log(req.body.startDate, req.body.endDate);
+    // Getting attendance of all users
+    const attendance = await Getattendence(startDate, endDate);
+    if (!attendance) {
+      throw new Error("Attendance for this user not avaible");
+    }
+
+    // getting attendance by userid
+    const filterAttendance = attendance.filter((att) => att._id == userId);
+    // creating excel by userid
     await CreatExcel(filterAttendance);
-fs.unlinkSync("Attendance.xlsx")
-    res.status(200).json({ message: "excel by id", userId, filterAttendance });
-    
+
+    fs.unlinkSync("Attendance.xlsx");
+    res.status(200).json({
+      message: "User's excel is created and has been sent by mail",
+      filterAttendance,
+    });
   } catch (error) {
-    fs.unlinkSync("Attendance.xlsx")
     console.log(error);
     handleError(res, 401, error.message);
   }

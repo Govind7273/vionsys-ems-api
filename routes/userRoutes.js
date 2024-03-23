@@ -26,11 +26,9 @@ router.put("/attendance/:userId", attendanceController.updateAttendance);
 
 
 // excel sheet route
-router.get("/attendance/Excel/getExcel", attendanceController.excel);
-router.get("/attendance/Excel/getExcel/:userId", attendanceController.excelById);
-
-
-
+router.post("/attendance/Excel/getExcel", attendanceController.excel);
+router.post("/attendance/Excel/getExcel/:userId", attendanceController.excelById);
+// the startDate and endDate in req.body for both above should be in format of YYYY-MM-DD
 
 
 // admin routes

@@ -1,5 +1,23 @@
 const ExcelJS = require("exceljs");
 const moment = require("moment");
+const fs = require("fs");
+
+const formatTime = (time) => {
+  return time ? moment(time).format("h:mm A") : ""; // Format time as "10:00 AM"
+};
+
+const calculateDuration = (loginTime, logoutTime) => {
+  if (loginTime && logoutTime) {
+    const duration = moment.duration(
+      moment(logoutTime).diff(moment(loginTime))
+    );
+    const hours = duration.hours();
+    const minutes = duration.minutes();
+    return `${hours} hours ${minutes} minutes`;
+  } else {
+    return "";
+  }
+};
 
 const CreatExcel = async (attendance) => {
   try {
@@ -70,32 +88,13 @@ const CreatExcel = async (attendance) => {
       // Add an empty row between users
       worksheet.addRow(["", "", "", "", "", "", ""]);
     });
-
-    // Save the workbook
-    const filePath = "Attendance.xlsx";
-
+    const currentDate = moment().format("DD-MM-YYYY");
+    const filePath = `Attendance_${currentDate}.xlsx`;
     await workbook.xlsx.writeFile(filePath);
-    console.log(`Attendance Excel sheet generated successfully: ${filePath}`);
+    return;
   } catch (error) {
-    console.error("Error generating attendance Excel sheet:", error);
-    throw error;
-  }
-};
-
-const formatTime = (time) => {
-  return time ? moment(time).format("h:mm A") : ""; // Format time as "10:00 AM"
-};
-
-const calculateDuration = (loginTime, logoutTime) => {
-  if (loginTime && logoutTime) {
-    const duration = moment.duration(
-      moment(logoutTime).diff(moment(loginTime))
-    );
-    const hours = duration.hours();
-    const minutes = duration.minutes();
-    return `${hours} hours ${minutes} minutes`;
-  } else {
-    return "";
+    fs.unlinkSync("Attendance.xlsx");
+    throw new Error("Error in creating Excel sheet");
   }
 };
 
