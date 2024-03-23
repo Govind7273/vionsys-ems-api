@@ -43,7 +43,7 @@ const sendExcelMail = async (subject, body, email, filepath) => {
     const mailResult = await transport.sendMail(config);
     return mailResult;
   } catch (error) {
-    console.log(error);
+
     throw new Error("Error while sending mail");
   }
 };

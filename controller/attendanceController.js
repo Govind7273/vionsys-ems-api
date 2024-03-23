@@ -135,7 +135,7 @@ exports.updateAttendance = async (req, res) => {
 exports.excel = async (req, res, next) => {
   try {
     const { Format_startDate, Format_endDate, email } = req.body;
-    // console.log(Format_startDate, Format_endDate, email);
+   
     if (!Format_startDate || !Format_endDate) {
       throw new Error("please select the Date Range");
     }
@@ -160,10 +160,10 @@ exports.excel = async (req, res, next) => {
     res.status(200).json({
       message: "Excel is created and has been sent by mail",
       filepath,
-      attendance,
+ 
     });
   } catch (error) {
-    console.log(error);
+   
     handleError(res, 401, error.message);
   }
 };
@@ -172,14 +172,14 @@ exports.excelById = async (req, res, next) => {
   try {
     const userId = req.params.userId;
     const { Format_startDate, Format_endDate, email } = req.body;
-    // console.log( Format_startDate, Format_endDate, email ,userId );
+
 
     // Getting attendance of all users
     const attendance = await Getattendence(Format_startDate, Format_endDate);
 
     // getting attendance by userid
     const filterAttendance = attendance.filter((att) => att._id == userId);
-    console.log("filter - ", filterAttendance);
+   
     if (!filterAttendance[0]) {
       throw new Error("Attendance for this user not available");
     }
@@ -196,10 +196,10 @@ exports.excelById = async (req, res, next) => {
     res.status(200).json({
       message: "User's excel is created and has been sent by mail",
       filepath,
-      filterAttendance,
+ 
     });
   } catch (error) {
-    console.log(error);
+  
     handleError(res, 401, error.message);
   }
 };

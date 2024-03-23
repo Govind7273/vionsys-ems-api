@@ -3,44 +3,58 @@ const router = express.Router();
 const userController = require("../controller/userController");
 const authController = require("../controller/authController");
 const attendanceController = require("../controller/attendanceController");
-const {upload} =require('../middleware/multer.middleware');
-
+const { upload } = require("../middleware/multer.middleware");
 
 //get params val
 // router.param("id", userController.checkID);
 
-
-router.post("/signup",upload.single('file'),authController.signup);
+router.post("/signup", upload.single("file"), authController.signup);
 router.post("/login", authController.login);
 router.post("/forgotPassword", authController.forgotPassword);
 router.patch("/resetPassword/:token", authController.resetPassword);
 
-
-
 // attendance routes
-router.post("/attendance",attendanceController.createAttendance);
+router.post("/attendance", attendanceController.createAttendance);
 router.get("/attendance", attendanceController.getAttendance);
 router.get("/attendance/:userId", attendanceController.getAttendanceById);
 router.put("/attendance/:userId", attendanceController.updateAttendance);
 
-
-
 // excel sheet route
-router.post("/attendance/Excel/getExcel", attendanceController.excel);
-router.post("/attendance/Excel/getExcel/:userId", attendanceController.excelById);
+router.post(
+  "/attendance/Excel/getExcel",
+  authController.protect,
+  authController.restrictTo(["admin"]),
+  attendanceController.excel
+);
+router.post(
+  "/attendance/Excel/getExcel/:userId",
+  authController.protect,
+  authController.restrictTo(["admin"]),
+  attendanceController.excelById
+);
 // the startDate and endDate in req.body for both above should be in format of YYYY-MM-DD
-
 
 // admin routes
 router
   .route("/")
-  .get(authController.protect,authController.restrictTo(["admin"]), userController.getAllUsers)
+  .get(
+    authController.protect,
+    authController.restrictTo(["admin"]),
+    userController.getAllUsers
+  );
 
 router
   .route("/:id")
   .get(userController.getUser)
-  .patch(authController.protect,authController.restrictTo(["admin"]),userController.updateUser)
-  .delete(authController.protect,authController.restrictTo(["admin"]),userController.deleteUser);
-
+  .patch(
+    authController.protect,
+    authController.restrictTo(["admin"]),
+    userController.updateUser
+  )
+  .delete(
+    authController.protect,
+    authController.restrictTo(["admin"]),
+    userController.deleteUser
+  );
 
 module.exports = router;
