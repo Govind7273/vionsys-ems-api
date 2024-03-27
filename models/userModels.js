@@ -36,6 +36,39 @@ const userSchema = new mongoose.Schema({
     type:String,
     required:[true,"Please provide a your profile"]
   },
+  address:{
+    type:String,
+     required:[true,"Please provide address"]
+  },
+  bloodGroup:{
+    type:String,
+    enum:['A+','A-','B+','B-','O+','O-','AB+','AB-'],
+    required:[true,"Please provide blood group"],
+   
+  },
+  dob:{
+    type:Date,
+    required:[true,"Please provide date of birth."],
+    validate: {
+      validator: function (value) {
+        // Ensure date of birth is not in the future
+        return value <= new Date();
+      },
+      message: "Date of birth cannot be in the future.",
+    },
+  },
+  
+  gender:{
+    type:String,
+    enum:["Male","Female","Other"],
+    required:[true,"Please provide gender"],
+   
+  },
+  phone:{
+    type:String,
+    length:[10,"Must be a 10 digit number"],
+    required:[true,"Please provide contact details"]
+  },
   password: {
     type: String,
     required: [true, "Please provide your password"],

@@ -47,16 +47,18 @@ const createSendToken = (user, statusCode, res) => {
 exports.signup = async (req, res, next) => {
   const imagepath=req?.file.path;
   try {
-     const url=await uploadOnCloudinary(imagepath);
+      const url=await uploadOnCloudinary(imagepath);
       const newUser = await User.create({
         ...req.body,
         role: undefined,
         profile:url
       });
 
+    console.log(newUser);
     createSendToken(newUser, 201, res);
-    
+
   } catch (error) {
+    console.log(error);
     handleError(res, 401, error.message);
   }
 };
@@ -82,6 +84,7 @@ exports.login = async (req, res, next) => {
       token,
     });
   } catch (error) {
+    console.log(error)
     handleError(res, 401, error.message);
   }
 };
