@@ -20,6 +20,8 @@ const calculateDuration = (loginTime, logoutTime) => {
 };
 
 const CreatExcel = async (attendance) => {
+  const currentDate = moment().format("DD-MM-YYYY");
+  const filePath = `Attendance_${currentDate}.xlsx`;
   try {
     // Create a new Excel workbook
     const workbook = new ExcelJS.Workbook();
@@ -88,12 +90,12 @@ const CreatExcel = async (attendance) => {
       // Add an empty row between users
       worksheet.addRow(["", "", "", "", "", "", ""]);
     });
-    const currentDate = moment().format("DD-MM-YYYY");
-    const filePath = `Attendance_${currentDate}.xlsx`;
+ 
     await workbook.xlsx.writeFile(filePath);
-    return;
+    
+    return filePath;
   } catch (error) {
-    fs.unlinkSync("Attendance.xlsx");
+    fs.unlinkSync(filePath);
     throw new Error("Error in creating Excel sheet");
   }
 };

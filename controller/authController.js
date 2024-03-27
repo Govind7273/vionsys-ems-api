@@ -1,6 +1,6 @@
 const { promisify } = require("util");
 const crypto = require("crypto");
-const sendEmail = require("../utils/email");
+const {sendEmail} = require("../utils/email");
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModels");
 const HOST="http://localhost:5173"
@@ -47,7 +47,6 @@ const createSendToken = (user, statusCode, res) => {
 exports.signup = async (req, res, next) => {
   const imagepath=req?.file.path;
   try {
-     console.log("image uploading started!!!")
      const url=await uploadOnCloudinary(imagepath);
       const newUser = await User.create({
         ...req.body,
@@ -170,7 +169,7 @@ exports.forgotPassword = async (req, res, next) => {
       user.passwordResetExpires = undefined;
       user.passwordResetToken = undefined;
       await user.save({ validateBeforeSave: false });
-      console.log(error)
+
       throw new Error("Error while sending email.");
     }
   } catch (error) {
@@ -185,14 +184,12 @@ exports.resetPassword = async (req, res, next) => {
       .createHash("sha256")
       .update(req.params.token)
       .digest("hex");
-      console.log(req.params.token)
 
       const user = await User.findOne({
         passwordResetToken: hashedToken,
         passwordResetExpires: { $gt: Date.now() },
       });
 
-      // console.log(user, hashedToken);
       // 2) if token has not expired and there is user - set the new password
       if(!user) {
         throw new Error("token is invalid or has expired")

@@ -25,7 +25,7 @@ exports.checkBody = (req, res, next) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find();
-    console.log(users)
+
     res.status(200).json({
       status: "success",
       requestedAt: req.reqTime,

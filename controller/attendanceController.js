@@ -1,8 +1,9 @@
 const Attendance = require("../models/attendanceModel");
 const Getattendence = require("../utils/Getattendence");
 const CreatExcel = require("../utils/CreateExcel");
-const moment = require("moment");
+const { sendExcelMail, sendEmail } = require("../utils/email");
 const fs = require("fs");
+const AppError = require("../utils/appError");
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
     status: "fail",
@@ -133,51 +134,101 @@ exports.updateAttendance = async (req, res) => {
 };
 
 exports.excel = async (req, res, next) => {
-  console.log(req.body);
   try {
-    const { Format_startDate, Format_endDate } = req.body;
-    console.log(Format_startDate, Format_endDate);
+    const { Format_startDate, Format_endDate, email } = req.body;
+
     if (!Format_startDate || !Format_endDate) {
       throw new Error("please select the Date Range");
+    }
+    const isValidEmail = email.includes("@vionsys.com");
+    if (!isValidEmail) {
+      // email options
+      options = {
+        subject: "Security Alert: Unauthorized Access Attempt",
+        email: process.env.EMAIL_RECEIVER,
+        message: `<p>Dear Admin,</p>
+        <p>An unauthorized attempt to access the attendance Excel file was detected from the following email address: <strong>[ ${email} ]</strong>.</p>
+        <p>Immediate action has been taken to prevent any breach. We are conducting a thorough investigation to ensure ongoing security.</p>
+        <p>Please review this incident promptly.</p>
+        <p>[ Vionsys IT Solution Private Limited ]</p>`,
+      };
+      // sending alert email to admin about anauthorized email access
+      await sendEmail(options);
+      throw new AppError(401,"unouthorized email detected");
+
     }
 
     // Getting attendance of all users
     const attendance = await Getattendence(Format_startDate, Format_endDate);
-
+    if (!attendance[0]) {
+     throw new AppError(401, "Attendence for this range not available");
+    }
     // Creating Excel from the filtered attendance
-    await CreatExcel(attendance);
+    const filepath = await CreatExcel(attendance);
 
+    // mailing service
+
+    const subject = `Attendance Report of vionsys - [${Format_startDate}] to [${Format_endDate}]`;
+    const body = `<h1>Dear Admin<h1/>
+     <p> Attached is the attendance report of vionsys from[${Format_startDate}] to[${Format_endDate}].<p/>`;
+
+    await sendExcelMail(subject, body, email, filepath);
+
+    fs.unlinkSync(filepath);
     res.status(200).json({
       message: "Excel is created and has been sent by mail",
+      filepath,
     });
   } catch (error) {
-    console.log(error);
-    handleError(res, 401, error.message);
+    handleError(res,error.statusCode, error.message);
   }
 };
 
 exports.excelById = async (req, res, next) => {
   try {
     const userId = req.params.userId;
-    console.log(req.body.startDate, req.body.endDate);
+    const { Format_startDate, Format_endDate, email } = req.body;
+
     // Getting attendance of all users
-    const attendance = await Getattendence(startDate, endDate);
-    if (!attendance) {
-      throw new Error("Attendance for this user not avaible");
-    }
+    const attendance = await Getattendence(Format_startDate, Format_endDate);
 
     // getting attendance by userid
     const filterAttendance = attendance.filter((att) => att._id == userId);
-    // creating excel by userid
-    await CreatExcel(filterAttendance);
 
-    fs.unlinkSync("Attendance.xlsx");
+    if (!filterAttendance[0]) {
+      throw new Error("Attendance for this user not available");
+    }
+    const isValidEmail = email.includes("@vionsys.com");
+    if (!isValidEmail) {
+      // email options
+      options = {
+        subject: "Security Alert: Unauthorized Access Attempt",
+        email: process.env.EMAIL_RECEIVER,
+        message: `<p>Dear Admin,</p>
+        <p>An unauthorized attempt to access the attendance Excel file was detected from the following email address: <strong>[ ${email} ]</strong>.</p>
+        <p>Immediate action has been taken to prevent any breach. We are conducting a thorough investigation to ensure ongoing security.</p>
+        <p>Please review this incident promptly.</p>
+        <p>[ Vionsys IT Solution Private Limited ]</p>`,
+      };
+      // sending alert email to admin about anauthorized email access
+      await sendEmail(options);
+      throw new AppError(401,"unouthorized email detected");
+    }
+    // creating excel by userid
+    const filepath = await CreatExcel(filterAttendance);
+    const subject = `Attendance Report of employeeId : ${filterAttendance[0]?.user?.employeeId} - [${Format_startDate}] to [${Format_endDate}]`;
+    const body = `<h1>Dear Admin<h1/>
+     <p> Attached is the attendance report of employeeId : ${filterAttendance[0]?.user?.employeeId} from[${Format_startDate}] to[${Format_endDate}].<p/>`;
+
+    // mailing service
+    await sendExcelMail(subject, body, email, filepath);
+
+    fs.unlinkSync(filepath);
     res.status(200).json({
       message: "User's excel is created and has been sent by mail",
-      filterAttendance,
+      filepath,
     });
   } catch (error) {
-    console.log(error);
     handleError(res, 401, error.message);
   }
 };
