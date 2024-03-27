@@ -3,7 +3,9 @@ const router = express.Router();
 const userController = require("../controller/userController");
 const authController = require("../controller/authController");
 const attendanceController = require("../controller/attendanceController");
-const { upload } = require("../middleware/multer.middleware");
+const notificationController=require("../controller/notificationController");
+const {upload} =require('../middleware/multer.middleware');
+
 
 //get params val
 // router.param("id", userController.checkID);
@@ -46,15 +48,14 @@ router
 router
   .route("/:id")
   .get(userController.getUser)
-  .patch(
-    authController.protect,
-    authController.restrictTo(["admin"]),
-    userController.updateUser
-  )
-  .delete(
-    authController.protect,
-    authController.restrictTo(["admin"]),
-    userController.deleteUser
-  );
+  .patch(authController.protect,authController.restrictTo(["admin"]),userController.updateUser)
+  .delete(authController.protect,authController.restrictTo(["admin"]),userController.deleteUser);
+
+//notification routes
+router.post("/notification/create",notificationController.createNotification);
+router.get("/notification/get",notificationController.getNotification);
+router.get("/find/notification/:id",notificationController.getNotificationById);
+router.delete("/delete/notification/:id",notificationController.deleteNotification);
+
 
 module.exports = router;
