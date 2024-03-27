@@ -1,8 +1,9 @@
 const Attendance = require("../models/attendanceModel");
 const Getattendence = require("../utils/Getattendence");
 const CreatExcel = require("../utils/CreateExcel");
-const { sendExcelMail } = require("../utils/email");
+const { sendExcelMail, sendEmail } = require("../utils/email");
 const fs = require("fs");
+const AppError = require("../utils/appError");
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
     status: "fail",
@@ -135,15 +136,32 @@ exports.updateAttendance = async (req, res) => {
 exports.excel = async (req, res, next) => {
   try {
     const { Format_startDate, Format_endDate, email } = req.body;
-   
+
     if (!Format_startDate || !Format_endDate) {
       throw new Error("please select the Date Range");
+    }
+    const isValidEmail = email.includes("@vionsys.com");
+    if (!isValidEmail) {
+      // email options
+      options = {
+        subject: "Security Alert: Unauthorized Access Attempt",
+        email: process.env.EMAIL_RECEIVER,
+        message: `<p>Dear Admin,</p>
+        <p>An unauthorized attempt to access the attendance Excel file was detected from the following email address: <strong>[ ${email} ]</strong>.</p>
+        <p>Immediate action has been taken to prevent any breach. We are conducting a thorough investigation to ensure ongoing security.</p>
+        <p>Please review this incident promptly.</p>
+        <p>[ Vionsys IT Solution Private Limited ]</p>`,
+      };
+      // sending alert email to admin about anauthorized email access
+      await sendEmail(options);
+      throw new AppError(401,"unouthorized email detected");
+
     }
 
     // Getting attendance of all users
     const attendance = await Getattendence(Format_startDate, Format_endDate);
     if (!attendance[0]) {
-      throw new Error("Attendence for this range not available");
+     throw new AppError(401, "Attendence for this range not available");
     }
     // Creating Excel from the filtered attendance
     const filepath = await CreatExcel(attendance);
@@ -160,11 +178,9 @@ exports.excel = async (req, res, next) => {
     res.status(200).json({
       message: "Excel is created and has been sent by mail",
       filepath,
- 
     });
   } catch (error) {
-   
-    handleError(res, 401, error.message);
+    handleError(res,error.statusCode, error.message);
   }
 };
 
@@ -173,15 +189,30 @@ exports.excelById = async (req, res, next) => {
     const userId = req.params.userId;
     const { Format_startDate, Format_endDate, email } = req.body;
 
-
     // Getting attendance of all users
     const attendance = await Getattendence(Format_startDate, Format_endDate);
 
     // getting attendance by userid
     const filterAttendance = attendance.filter((att) => att._id == userId);
-   
+
     if (!filterAttendance[0]) {
       throw new Error("Attendance for this user not available");
+    }
+    const isValidEmail = email.includes("@vionsys.com");
+    if (!isValidEmail) {
+      // email options
+      options = {
+        subject: "Security Alert: Unauthorized Access Attempt",
+        email: process.env.EMAIL_RECEIVER,
+        message: `<p>Dear Admin,</p>
+        <p>An unauthorized attempt to access the attendance Excel file was detected from the following email address: <strong>[ ${email} ]</strong>.</p>
+        <p>Immediate action has been taken to prevent any breach. We are conducting a thorough investigation to ensure ongoing security.</p>
+        <p>Please review this incident promptly.</p>
+        <p>[ Vionsys IT Solution Private Limited ]</p>`,
+      };
+      // sending alert email to admin about anauthorized email access
+      await sendEmail(options);
+      throw new AppError(401,"unouthorized email detected");
     }
     // creating excel by userid
     const filepath = await CreatExcel(filterAttendance);
@@ -196,10 +227,8 @@ exports.excelById = async (req, res, next) => {
     res.status(200).json({
       message: "User's excel is created and has been sent by mail",
       filepath,
- 
     });
   } catch (error) {
-  
     handleError(res, 401, error.message);
   }
 };

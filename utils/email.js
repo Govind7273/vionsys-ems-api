@@ -13,7 +13,7 @@ const sendEmail = async (options) => {
     from: process.env.EMAIL_USER,
     to: options.email,
     subject: options.subject,
-    text: options.message,
+    html: options.message,
   };
   const mailResult = await transport.sendMail(config);
   return mailResult;
@@ -43,7 +43,6 @@ const sendExcelMail = async (subject, body, email, filepath) => {
     const mailResult = await transport.sendMail(config);
     return mailResult;
   } catch (error) {
-
     throw new Error("Error while sending mail");
   }
 };
