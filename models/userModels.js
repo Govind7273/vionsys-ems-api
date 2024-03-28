@@ -77,14 +77,14 @@ const userSchema = new mongoose.Schema({
   },
   passwordConfirm: {
     type: String,
-    required: [true, "Please confirm your password"],
-    validate: {
-      // this only works on create & save !! not findOne & update
-      validator: function (el) {
-        return el === this.password;
-      },
-      message: "Password are not the same !",
-    },
+    // required: [true, "Please confirm your password"],
+    // validate: {
+    //   // this only works on create & save !! not findOne & update
+    //   validator: function (el) {
+    //     return el === this.password;
+    //   },
+    //   message: "Password are not the same !",
+    // },
   },
   reportingManager: {
     type: String,
