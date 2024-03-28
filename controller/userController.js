@@ -1,4 +1,5 @@
 const User = require("../models/userModels");
+const { removeFromCloudinary, uploadOnCloudinary } = require("../utils/cloudinary");
 
 // exports.checkID = (req, res, next, val) => {
 //   console.log(`User id is ${val}`);
@@ -66,6 +67,10 @@ exports.deleteUser = async (req, res) => {
     const id = req.params.id;
 
     const user = await User.findByIdAndDelete(id);
+    const response=await removeFromCloudinary(user.profile);
+    if(!response){
+      throw new Error("user deleted but image is not able to delete");
+    }
 
     if (!user) {
       throw new Error("Cannot delete. User not found !");
@@ -84,8 +89,31 @@ exports.deleteUser = async (req, res) => {
 
 exports.updateUser = async (req, res) => {
   try {
-    const user = await User.updateOne({ name: req.body.name });
-
+    let url;
+    const user=await User.findById(req.body._id);
+    if(!req?.file){
+       url=user.profile;
+    }else{
+      const response=await removeFromCloudinary(user.profile);
+      console.log("File removed From Cloudinary::",response)
+      const imagepath=req?.file.path;
+      url= await uploadOnCloudinary(imagepath);
+    }
+    user.passwordConfirm=user.password;
+    user.profile=url;
+    user.firstName=req.body.firstName;
+    user.lastName=req.body.lastName;
+    user.email=req.body.email;
+    user.address=req.body.address;
+    user.bloodGroup=req.body.bloodGroup;
+    user.gender=req.body.gender;
+    user.phone=req.body.phone;
+    user.dob=req.body.dob;
+    user.employeeId=req.body.employeeId;
+    user.designation=req.body.designation;
+    user.reportingManager=req.body.reportingManager;
+    user.teamLead=req.body.teamLead;
+    await user.save();
     res.status(200).json({
       status: "success",
       data: {
@@ -94,6 +122,7 @@ exports.updateUser = async (req, res) => {
       },
     });
   } catch (error) {
+    console.log(error)
     handleError(res, 400, error.message);
   }
 };
