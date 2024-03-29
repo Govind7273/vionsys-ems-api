@@ -48,9 +48,8 @@ router
 router
   .route("/:id")
   .get(userController.getUser)
-  .patch(authController.protect,authController.restrictTo(["admin"]), upload.single("file"),userController.updateUser)
+  .patch(authController.protect,authController.restrictTo(["admin"]),userController.updateUser)
   .delete(authController.protect,authController.restrictTo(["admin"]),userController.deleteUser);
-
 
 //notification routes
 router.post("/notification/create",notificationController.createNotification);
