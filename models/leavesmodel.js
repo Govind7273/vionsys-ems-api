@@ -6,14 +6,38 @@ const leavesScheama = mongoose.Schema({
     ref: "user",
     required: true,
   },
+  date: {
+    type: Date,
+    default: Date.now,
+  },
+  halfDay: {
+    type: Boolean,
+    default: false,
+  },
+  noteByAdmin: {
+    type: String,
+    default: "nothing by Admin",
+  },
   leaveType: {
     type: String,
     required: [true, "Please select the leave Type"],
-    enum: ["Medical Leave", "Casual Leave"],
+    enum: [
+      "Sick Leave",
+      "Casual Leave",
+      "Floater Leave",
+      "Privilage Leave",
+      "Unpaid Leave",
+    ],
     default: "Casual Leave",
     validate: {
       validator: function (value) {
-        return ["Medical Leave", "Casual Leave"].includes(value);
+        return [
+          "Sick Leave",
+          "Casual Leave",
+          "Floater Leave",
+          "Privilage Leave",
+          "Unpaid Leave",
+        ].includes(value);
       },
       message: (props) => `${props.value} is not a valid leave reason !`,
     },
@@ -24,7 +48,7 @@ const leavesScheama = mongoose.Schema({
   },
   leaveDays: {
     type: Number,
-    default: 0,
+    default: 1,
   },
   leaveStart: {
     type: Date,
@@ -38,13 +62,17 @@ const leavesScheama = mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  floaterDay: {
+    type: String,
+    defoult: "none",
+  },
   leaveStatus: {
     type: String,
     enum: ["Approved", "Rejected", "Pending"],
     default: "Pending",
     validate: {
       validator: function (value) {
-        return ["Medical Leave", "Casual Leave", "Pending"].includes(value);
+        return ["Approved", "Rejected", "Pending"].includes(value);
       },
       message: (props) => `${props.value} is not a valid status !`,
     },

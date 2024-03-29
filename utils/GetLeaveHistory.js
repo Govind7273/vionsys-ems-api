@@ -1,13 +1,12 @@
-const { Types } = require("mongoose");
+const { default: mongoose } = require("mongoose");
 const User = require("../models/userModels");
-const Leaves = require("../models/leavesmodel");
 
 const getUserHistory = async (userId) => {
   try {
     let aggregationPipeline = [];
 
     if (userId) {
-      const userObjectId = Types.ObjectId(userId);
+      const userObjectId = new mongoose.Types.ObjectId(userId);
       aggregationPipeline = [
         {
           $match: { _id: userObjectId },
@@ -20,6 +19,14 @@ const getUserHistory = async (userId) => {
             as: "leaves",
           },
         },
+        {
+          $lookup: {
+            from: "leavescounts",
+            localField: "_id",
+            foreignField: "user",
+            as: "leavescounts",
+          },
+        },
       ];
     } else {
       aggregationPipeline = [
@@ -29,6 +36,16 @@ const getUserHistory = async (userId) => {
             localField: "_id",
             foreignField: "user",
             as: "leaves",
+          },
+        },
+        {
+          $match: {
+            leaves: { $ne: [] }, // Filter out users with empty leaves array
+          },
+        },
+        {
+          $project: {
+            password: 0, // Exclude the password field
           },
         },
       ];
