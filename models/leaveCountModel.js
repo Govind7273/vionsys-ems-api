@@ -22,6 +22,29 @@ const leaveCountScheama = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  floaterleave: {
+    type: Number,
+    default: 1,
+  },
+  floaterDay: {
+    type: String,
+    defoult: "none",
+  },
+  privilageleave: {
+    type: Number,
+    default: 10,
+  },
+  sickleave: {
+    type: Number,
+    default: 5,
+  },
+  casualleave: {
+    type: Number,
+    default: 5,
+  },
+  unpaidleave: {
+    type: Number,
+  },
 });
 
 const LeavesCount = mongoose.model("LeavesCount", leaveCountScheama);
