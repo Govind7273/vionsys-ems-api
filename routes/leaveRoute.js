@@ -9,11 +9,16 @@ router.post(
   leaveController.createLeaveRequest
 );
 
+router.post(
+  "/cancel/:leaveId",
+  authController.protect,
+  leaveController.cancelLeaveRequest
+);
+
 router.get("/leaveHistory/:userId", leaveController.getleavesHistoryById);
 router.get(
   "/leaveHistory",
   authController.protect,
-  authController.restrictTo(["admin"]),
   leaveController.getleaveHistory
 );
 

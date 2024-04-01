@@ -1,10 +1,10 @@
 const { promisify } = require("util");
 const crypto = require("crypto");
-const {sendEmail} = require("../utils/email");
+const { sendEmail } = require("../utils/email");
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModels");
-const HOST="http://localhost:5173"
-const fs=require('fs');
+const HOST = "http://localhost:5173";
+const fs = require("fs");
 const { uploadOnCloudinary } = require("../utils/cloudinary");
 
 function handleError(res, statusCode, errorMessage) {
@@ -45,18 +45,17 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 exports.signup = async (req, res, next) => {
-  const imagepath=req?.file.path;
+  const imagepath = req?.file.path;
   try {
-      const url=await uploadOnCloudinary(imagepath);
-      const newUser = await User.create({
-        ...req.body,
-        role: undefined,
-        profile:url
-      });
+    const url = await uploadOnCloudinary(imagepath);
+    const newUser = await User.create({
+      ...req.body,
+      role: undefined,
+      profile: url,
+    });
 
     console.log(newUser);
     createSendToken(newUser, 201, res);
-
   } catch (error) {
     console.log(error);
     handleError(res, 401, error.message);
@@ -84,7 +83,7 @@ exports.login = async (req, res, next) => {
       token,
     });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     handleError(res, 401, error.message);
   }
 };
@@ -138,8 +137,8 @@ exports.restrictTo = (roles) => {
 
 exports.forgotPassword = async (req, res, next) => {
   try {
-    if(!req.body.email){
-      throw new Error("please enter your Email")
+    if (!req.body.email) {
+      throw new Error("please enter your Email");
     }
     // 1) get user based on posted email
     const user = await User.findOne({ email: req.body.email });
@@ -152,8 +151,7 @@ exports.forgotPassword = async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
 
     //3) send it to users email
-    const resetUrl =`${HOST}/ResetPassword/${resetToken}`
-  
+    const resetUrl = `${HOST}/ResetPassword/${resetToken}`;
 
     const message = `Forgot your password? create new with ${resetUrl}. If you didn't forgot your password, please ignore this email`;
 
@@ -188,22 +186,22 @@ exports.resetPassword = async (req, res, next) => {
       .update(req.params.token)
       .digest("hex");
 
-      const user = await User.findOne({
-        passwordResetToken: hashedToken,
-        passwordResetExpires: { $gt: Date.now() },
-      });
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
+    });
 
-      // 2) if token has not expired and there is user - set the new password
-      if(!user) {
-        throw new Error("token is invalid or has expired")
-      }
+    // 2) if token has not expired and there is user - set the new password
+    if (!user) {
+      throw new Error("token is invalid or has expired");
+    }
 
-      user.password = req.body.password;
-      user.passwordConfirm = req.body.passwordConfirm;
-      user.passwordResetToken = undefined;
-      user.passwordResetExpires = undefined;
+    user.password = req.body.password;
+    user.passwordConfirm = req.body.passwordConfirm;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
 
-      await user.save();
+    await user.save();
 
     // 3) update changedPasswordAt property for the user
 
@@ -212,12 +210,10 @@ exports.resetPassword = async (req, res, next) => {
 
     res.status(200).json({
       status: "success",
-      message:"password reset succesfully",
+      message: "password reset succesfully",
       token,
     });
-
   } catch (error) {
     handleError(res, 401, error.message);
   }
 };
-
