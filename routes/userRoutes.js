@@ -4,6 +4,7 @@ const userController = require("../controller/userController");
 const authController = require("../controller/authController");
 const attendanceController = require("../controller/attendanceController");
 const notificationController=require("../controller/notificationController");
+const taskController = require("../controller/taskController");
 const {upload} =require('../middleware/multer.middleware');
 
 
@@ -58,4 +59,9 @@ router.get("/find/notification/:id",notificationController.getNotificationById);
 router.delete("/delete/notification/:id",notificationController.deleteNotification);
 
 
+
+//tasks routes
+router.post('/task/create',taskController.createTask);
+router.patch('/task/started/:id',taskController.updateTaskStart);
+router.patch('/task/completed/:id',taskController.updateTaskCompleted);
 module.exports = router;
