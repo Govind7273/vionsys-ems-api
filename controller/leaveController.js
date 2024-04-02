@@ -155,11 +155,22 @@ exports.createLeaveRequest = async (req, res) => {
 
 exports.cancelLeaveRequest = async (req, res) => {
   try {
-    const { user } = req.body;
+    const { user, cancleReason } = req.body;
     const leaveId = req.params.leaveId;
 
     const theUserLeave = await Leaves.findOne({ _id: leaveId });
-    // console.log("leave status", theUserLeave?.leaveStatus);
+    console.log(theUserLeave.leaveStart, theUserLeave.leaveEnd);
+
+    const currentDate = new Date();
+    const leaveStartDate = new Date(theUserLeave.leaveStart);
+    const leaveEndDate = new Date(theUserLeave.leaveEnd);
+
+    if (currentDate > leaveStartDate && currentDate < leaveEndDate) {
+      throw new Error("Leave has already started.");
+    }
+    if (currentDate >= leaveEndDate) {
+      throw new Error("Leave has already ended.");
+    }
 
     const leaveTypeField = theUserLeave?.leaveType
       .toLowerCase()
@@ -172,32 +183,44 @@ exports.cancelLeaveRequest = async (req, res) => {
     switch (theUserLeave?.leaveStatus) {
       case "Pending":
         updateremove = {
-          $inc: { pendingLeaves: -1, totalLeaves: -1 },
+          $inc: { pendingLeaves: -1, totalLeaves: -1, cancelledLeaves: 1 },
         };
         updateremove.$inc[leaveTypeField] = 1;
         break;
       case "Approved":
         updateremove = {
-          $inc: { approvedLeaves: -1, totalLeaves: -1 },
+          $inc: { approvedLeaves: -1, totalLeaves: -1, cancelledLeaves: 1 },
         };
         updateremove.$inc[leaveTypeField] = 1;
         break;
-      // case "Rejected":
-      //   updateremove = {
-      //     $inc: { rejectedLeaves: -1, totalLeaves: -1 },
-      //   };
-      //   updateremove.$inc[leaveTypeField] = 1;
-      //   break;
+
       default:
         break;
     }
     if (theUserLeave?.leaveStatus === "Rejected") {
       throw new Error("can't cancle request , is already rejected");
     }
-    const updatecount = await LeavesCount.updateOne({ user }, updateremove);
-    await Leaves.deleteOne({ _id: leaveId });
+    if (theUserLeave?.leaveStatus === "Cancelled") {
+      throw new Error("can't Cancel request , is already Cancelled");
+    }
+    if (theUserLeave?.leaveStatus === "Expired") {
+      throw new Error("can't Cancel request , is already Expired");
+    }
 
-    res.status(200).json({ message: "deletion successful", updatecount });
+    const updatecount = await LeavesCount.updateOne({ user }, updateremove);
+    const Leavesupdate = await Leaves.updateOne(
+      { _id: leaveId },
+      {
+        leaveCancle: true,
+        cancleReason,
+        leaveStatus: "Cancelled",
+        cancleDate: new Date(),
+      }
+    );
+
+    res
+      .status(200)
+      .json({ message: "deletion successful", updatecount, Leavesupdate });
   } catch (error) {
     handleError(res, 400, error.message);
   }
@@ -211,13 +234,26 @@ exports.getleavesHistoryById = async (req, res) => {
       throw new AppError(400, "userId parameter is required");
     }
 
-    const leavesCount = await LeavesCount.findOneAndUpdate(
+    await LeavesCount.findOneAndUpdate(
       { user: userId },
       { user: userId },
       { upsert: true, new: true }
     );
 
+    await Leaves.updateMany(
+      {
+        user: userId,
+        leaveStatus: "Pending",
+        $or: [
+          { leaveStart: { $lt: new Date() } },
+          { leaveEnd: { $lt: new Date() } },
+        ],
+      },
+      { $set: { leaveStatus: "Expired" } }
+    );
+
     const userAllLeaves = await getUserHistory(userId);
+
     res.status(200).json({ message: "ok", userAllLeaves });
   } catch (error) {
     console.log(error);
@@ -227,6 +263,17 @@ exports.getleavesHistoryById = async (req, res) => {
 
 exports.getleaveHistory = async (req, res) => {
   try {
+    await Leaves.updateMany(
+      {
+        leaveStatus: "Pending",
+        $or: [
+          { leaveStart: { $lt: new Date() } },
+          { leaveEnd: { $lt: new Date() } },
+        ],
+      },
+      { $set: { leaveStatus: "Expired" } }
+    );
+
     const AllLeaves = await getUserHistory();
     res.status(200).json({ message: "ok", AllLeaves });
   } catch (error) {
@@ -250,8 +297,15 @@ exports.leaveApprovedByAdmin = async (req, res) => {
     if (leavedata.leaveStatus === "Approved") {
       throw new AppError(400, "Leave already approved");
     }
+
+    if (leavedata.leaveStatus === "Cancelled") {
+      throw new AppError(400, "leave is cancelled by employee! can't update");
+    }
     if (leavedata.leaveStatus === "Rejected") {
       throw new AppError(400, "Leave is rejected, can't Approved");
+    }
+    if (leavedata.leaveStatus === "Expired") {
+      throw new AppError(400, "Leave is Expired	, can't Approved");
     }
     const approvedleave = await Leaves.findOneAndUpdate(
       { _id: leaveId, user: userId },
@@ -286,12 +340,17 @@ exports.leaveRejectedByAdmin = async (req, res) => {
     if (!leavedata) {
       throw new AppError(404, "Leave not found");
     }
-
+    if (leavedata.leaveStatus === "Cancelled") {
+      throw new AppError(400, "leave is cancelled by employee! can't update");
+    }
     if (leavedata.leaveStatus === "Rejected") {
       throw new AppError(400, "Leave already Rejected");
     }
     if (leavedata.leaveStatus === "Approved") {
       throw new AppError(400, "Leave is Approved , can't rejected");
+    }
+    if (leavedata.leaveStatus === "Expired") {
+      throw new AppError(400, "Leave is Expired	 , can't rejected");
     }
 
     const approvedleave = await Leaves.findOneAndUpdate(

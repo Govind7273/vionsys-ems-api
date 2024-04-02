@@ -45,6 +45,9 @@ const leaveCountScheama = new mongoose.Schema({
   unpaidleave: {
     type: Number,
   },
+  cancelledLeaves: {
+    type: Number,
+  },
 });
 
 const LeavesCount = mongoose.model("LeavesCount", leaveCountScheama);
