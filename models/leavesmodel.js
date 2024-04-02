@@ -62,13 +62,21 @@ const leavesScheama = mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  cancleDate: {
+    type: Date,
+    default: Date.now,
+  },
+  cancleReason: {
+    type: String,
+    default: "none",
+  },
   floaterDay: {
     type: String,
     defoult: "none",
   },
   leaveStatus: {
     type: String,
-    enum: ["Approved", "Rejected", "Pending"],
+    enum: ["Approved", "Rejected", "Pending", "Cancelled", "Expired"],
     default: "Pending",
     validate: {
       validator: function (value) {
