@@ -21,7 +21,9 @@ const getAllNote = () => {
                     description: "$description",
                     title: "$title",
                     // Assuming 'firstname' is the field you want to retrieve from the User schema
-                    username: "$user.firstName"
+                    username: "$user.firstName",
+                    avtar:"$user.profile",
+                    date:"$date"
                 }
             }
         ]);
