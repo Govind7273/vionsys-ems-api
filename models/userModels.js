@@ -33,22 +33,21 @@ const userSchema = new mongoose.Schema({
     type: String,
   },
   profile: {
-    type:String,
-    required:[true,"Please provide a your profile"]
+    type: String,
+    required: [true, "Please provide a your profile"],
   },
-  address:{
-    type:String,
-     required:[true,"Please provide address"]
+  address: {
+    type: String,
+    required: [true, "Please provide address"],
   },
-  bloodGroup:{
-    type:String,
-    enum:['A+','A-','B+','B-','O+','O-','AB+','AB-'],
-    required:[true,"Please provide blood group"],
-   
+  bloodGroup: {
+    type: String,
+    enum: ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"],
+    required: [true, "Please provide blood group"],
   },
-  dob:{
-    type:Date,
-    required:[true,"Please provide date of birth."],
+  dob: {
+    type: Date,
+    required: [true, "Please provide date of birth."],
     validate: {
       validator: function (value) {
         // Ensure date of birth is not in the future
@@ -57,22 +56,21 @@ const userSchema = new mongoose.Schema({
       message: "Date of birth cannot be in the future.",
     },
   },
-  
-  gender:{
-    type:String,
-    enum:["Male","Female","Other"],
-    required:[true,"Please provide gender"],
-   
+
+  gender: {
+    type: String,
+    enum: ["Male", "Female", "Other"],
+    required: [true, "Please provide gender"],
   },
-  phone:{
-    type:String,
-    length:[10,"Must be a 10 digit number"],
-    required:[true,"Please provide contact details"]
+  phone: {
+    type: String,
+    length: [10, "Must be a 10 digit number"],
+    required: [true, "Please provide contact details"],
   },
   password: {
     type: String,
     required: [true, "Please provide your password"],
-    minlength: [8,"please enter password of 8 characters"],
+    minlength: [8, "please enter password of 8 characters"],
     select: false,
   },
   passwordConfirm: {
@@ -92,6 +90,13 @@ const userSchema = new mongoose.Schema({
   teamLead: {
     type: String,
   },
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
+  verificationToken: String,
+  verificationExpires: Date,
+
   passwordChangedAt: Date,
   passwordResetToken: String,
   passwordResetExpires: Date,
@@ -109,7 +114,7 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-userSchema.pre("save", function(next) {
+userSchema.pre("save", function (next) {
   if (!this.isModified("password") || this.isNew) return next();
 
   this.passwordChangedAt = Date.now() - 1000;
