@@ -11,11 +11,11 @@ const TaskSchema=new mongoose.Schema({
      },
      status:{
          type:String,
-         enum:["STARTED","COMPLETED","PENDING"],
+         enum:["INPROGRESS","COMPLETED","PENDING"],
          default:'PENDING',
          validate: {
             validator: function (value) {
-              return ["STARTED","COMPLETED","PENDING"].includes(value);
+              return ["INPROGRESS","COMPLETED","PENDING"].includes(value);
             },
             message: (props) => `${props.value} is not a valid status !`,
           },

@@ -75,7 +75,9 @@ router.delete(
 );
 
 //tasks routes
-router.post("/task/create", taskController.createTask);
-router.patch("/task/started/:id", taskController.updateTaskStart);
-router.patch("/task/completed/:id", taskController.updateTaskCompleted);
+router.post('/task/create',taskController.createTask);
+router.patch('/task/started/:id',taskController.updateTaskStart);
+router.patch('/task/completed/:id',taskController.updateTaskCompleted);
+router.get('/task/getAll/:id',taskController.getTasksFromUserId);
+
 module.exports = router;
