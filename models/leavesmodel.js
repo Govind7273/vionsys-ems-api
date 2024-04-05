@@ -80,7 +80,13 @@ const leavesScheama = mongoose.Schema({
     default: "Pending",
     validate: {
       validator: function (value) {
-        return ["Approved", "Rejected", "Pending"].includes(value);
+        return [
+          "Approved",
+          "Rejected",
+          "Pending",
+          "Cancelled",
+          "Expired",
+        ].includes(value);
       },
       message: (props) => `${props.value} is not a valid status !`,
     },

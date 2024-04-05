@@ -84,6 +84,7 @@ exports.createLeaveRequest = async (req, res) => {
 
     const alreadyAppliedForLeave = await Leaves.findOne({
       user: userId,
+      leaveStatus: "Pending" || "Approved",
       $or: [
         {
           leaveStart: {
@@ -177,26 +178,33 @@ exports.cancelLeaveRequest = async (req, res) => {
       .split(" ")
       .join("");
 
-    // console.log("fields", leaveTypeField);
-
     let updateremove = {};
+
     switch (theUserLeave?.leaveStatus) {
       case "Pending":
         updateremove = {
-          $inc: { pendingLeaves: -1, totalLeaves: -1, cancelledLeaves: 1 },
+          $inc: { pendingLeaves: -1, cancelledLeaves: 1 },
         };
-        updateremove.$inc[leaveTypeField] = 1;
+        {
+          leaveTypeField !== "unpaidleave"
+            ? (updateremove.$inc[leaveTypeField] = theUserLeave?.leaveDays)
+            : (updateremove.$inc[leaveTypeField] = -theUserLeave?.leaveDays);
+        }
         break;
       case "Approved":
         updateremove = {
-          $inc: { approvedLeaves: -1, totalLeaves: -1, cancelledLeaves: 1 },
+          $inc: { approvedLeaves: -1, cancelledLeaves: 1 },
         };
-        updateremove.$inc[leaveTypeField] = 1;
+        {
+          leaveTypeField !== "unpaidleave"
+            ? (updateremove.$inc[leaveTypeField] = theUserLeave?.leaveDays)
+            : (updateremove.$inc[leaveTypeField] = -theUserLeave?.leaveDays);
+        }
         break;
-
       default:
         break;
     }
+
     if (theUserLeave?.leaveStatus === "Rejected") {
       throw new Error("can't cancle request , is already rejected");
     }
@@ -231,16 +239,47 @@ exports.getleavesHistoryById = async (req, res) => {
     const userId = req.params.userId;
 
     if (!userId) {
-      throw new AppError(400, "userId parameter is required");
+      throw new AppError(400, "User ID not found");
     }
 
+    // Ensure LeavesCount document exists for the user
     await LeavesCount.findOneAndUpdate(
       { user: userId },
       { user: userId },
       { upsert: true, new: true }
     );
 
-    await Leaves.updateMany(
+    // Find pending leaves that have expired
+    const useExpired = await Leaves.find({
+      user: userId,
+      leaveStatus: "Pending",
+      $or: [
+        { leaveStart: { $lt: new Date() } },
+        { leaveEnd: { $lt: new Date() } },
+      ],
+    });
+
+    // Loop through expired leaves and update LeavesCount document
+    for (const leave of useExpired) {
+      const leaveTypeField = leave.leaveType.toLowerCase().split(" ").join("");
+      const expiredDays = leave.leaveDays;
+
+      // Increment the leave count in LeavesCount document based on leave type and days
+      if (leaveTypeField === "unpaidleave") {
+        await LeavesCount.findOneAndUpdate(
+          { user: userId },
+          { $inc: { [leaveTypeField]: -expiredDays } }
+        );
+      } else {
+        await LeavesCount.findOneAndUpdate(
+          { user: userId },
+          { $inc: { [leaveTypeField]: expiredDays } }
+        );
+      }
+    }
+
+    // Mark expired leaves as "Expired" in the database
+    const expiredleaves = await Leaves.updateMany(
       {
         user: userId,
         leaveStatus: "Pending",
@@ -252,9 +291,22 @@ exports.getleavesHistoryById = async (req, res) => {
       { $set: { leaveStatus: "Expired" } }
     );
 
+    // Increment the expiredLeaves count in LeavesCount document
+    const expiredCount = expiredleaves?.modifiedCount;
+    if (expiredCount) {
+      await LeavesCount.findOneAndUpdate(
+        { user: userId },
+        { $inc: { pendingLeaves: -1, expiredLeaves: expiredCount } }
+      );
+    }
+
+    // Get the leave history of the user
     const userAllLeaves = await getUserHistory(userId);
 
-    res.status(200).json({ message: "ok", userAllLeaves });
+    // Send the leave history in the response along with a success message
+    res
+      .status(200)
+      .json({ message: "Leave history retrieved successfully", userAllLeaves });
   } catch (error) {
     console.log(error);
     handleError(res, 400, error.message);

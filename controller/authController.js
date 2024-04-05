@@ -200,10 +200,9 @@ exports.resetPassword = async (req, res, next) => {
     user.passwordConfirm = req.body.passwordConfirm;
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
+    user.passwordChangedAt = new Date();
 
     await user.save();
-
-    // 3) update changedPasswordAt property for the user
 
     // 4) log the user in send jwt
     const token = signToken(user._id, user.role);
@@ -213,6 +212,61 @@ exports.resetPassword = async (req, res, next) => {
       message: "password reset succesfully",
       token,
     });
+  } catch (error) {
+    handleError(res, 401, error.message);
+  }
+};
+
+exports.sendMailVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      throw new Error("unauthorized access request");
+    }
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    upatetoken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    const resetUrl = `${HOST}/Verifymail/${resetToken}`;
+    const message = `Verify your mail with ${resetUrl}. If you didn't requested for this verifacation, please ignore this email`;
+    user.verificationToken = upatetoken;
+    user.verificationExpires = Date.now() + 10 * 60 * 1000;
+    await user.save({ validateBeforeSave: false });
+    await sendEmail({
+      email: user.email,
+      message,
+      subject: "Verify Mail : your Mail verification token valid for 10 min",
+    });
+    res.status(200).json({
+      status: "success",
+      message: "Email verification sent to your Email",
+    });
+  } catch (error) {
+    handleError(res, 401, error.message);
+  }
+};
+
+exports.mailVerifacation = async (req, res) => {
+  try {
+    const token = req.params.token;
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      verificationToken: hashedToken,
+      verificationExpires: { $gt: Date.now() },
+    });
+    console.log("user", user);
+    if (!user) {
+      throw new Error("token is invalid or has expired");
+    }
+
+    user.isVerified = true;
+    user.verificationToken = undefined;
+    user.verificationExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    res.status(200).json({ message: "Email verified succesfully", token });
   } catch (error) {
     handleError(res, 401, error.message);
   }

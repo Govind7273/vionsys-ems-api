@@ -44,9 +44,15 @@ const leaveCountScheama = new mongoose.Schema({
   },
   unpaidleave: {
     type: Number,
+    default: 0,
   },
   cancelledLeaves: {
     type: Number,
+    default: 0,
+  },
+  expiredLeaves: {
+    type: Number,
+    default: 0,
   },
 });
 
