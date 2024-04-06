@@ -4,6 +4,9 @@ const { rateLimit } = require("express-rate-limit");
 const helmet = require("helmet");
 const userRouter = require("./routes/userRoutes");
 const leaveRouter = require("./routes/leaveRoute");
+const attendanceRouter = require("./routes/attendanceRoute");
+const notificationsRouter = require("./routes/notificationsRoute");
+const tasksRouter = require("./routes/taskRoute");
 const mongoSanitize = require("express-mongo-sanitize");
 const { xss } = require("express-xss-sanitizer");
 const cors = require("cors");
@@ -50,6 +53,10 @@ app.use(xss());
 // Routes
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/users/leaves", leaveRouter);
+app.use("/api/v1/users/attendance", attendanceRouter);
+app.use("/api/v1/users/notification", notificationsRouter);
+app.use("/api/v1/users/task", tasksRouter);
+
 
 app.all("*", (req, res, next) => {
   res.status(404).json({
