@@ -14,7 +14,11 @@ router.post("/signup", upload.single("file"), authController.signup);
 router.post("/login", authController.login);
 router.post("/forgotPassword", authController.forgotPassword);
 router.patch("/resetPassword/:token", authController.resetPassword);
-router.post("/sendverifyMail", authController.sendMailVerification);
+router.post(
+  "/sendverifyMail",
+  authController.protect,
+  authController.sendMailVerification
+);
 router.post("/verifyMail/:token", authController.mailVerifacation);
 
 // attendance routes
@@ -24,6 +28,12 @@ router.get("/attendance/:userId", attendanceController.getAttendanceById);
 router.put("/attendance/:userId", attendanceController.updateAttendance);
 
 // excel sheet route
+// router.post(
+//   "/attendance/Excel/All/:userId",
+//   authController.protect,
+//   authController.restrictTo(["admin"]),
+//   attendanceController.excelUser
+// );
 router.post(
   "/attendance/Excel/getExcel",
   authController.protect,
@@ -36,7 +46,6 @@ router.post(
   authController.restrictTo(["admin"]),
   attendanceController.excelById
 );
-// the startDate and endDate in req.body for both above should be in format of YYYY-MM-DD
 
 // admin routes
 router
@@ -75,9 +84,9 @@ router.delete(
 );
 
 //tasks routes
-router.post('/task/create',taskController.createTask);
-router.patch('/task/started/:id',taskController.updateTaskStart);
-router.patch('/task/completed/:id',taskController.updateTaskCompleted);
-router.get('/task/getAll/:id',taskController.getTasksFromUserId);
+router.post("/task/create", taskController.createTask);
+router.patch("/task/started/:id", taskController.updateTaskStart);
+router.patch("/task/completed/:id", taskController.updateTaskCompleted);
+router.get("/task/getAll/:id", taskController.getTasksFromUserId);
 
 module.exports = router;

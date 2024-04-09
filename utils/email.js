@@ -19,7 +19,7 @@ const sendEmail = async (options) => {
   return mailResult;
 };
 
-const sendExcelMail = async (subject, body, email, filepath) => {
+const sendExcelMail = async (subject, body, email, mergeexcel) => {
   try {
     const transport = nodemailer.createTransport({
       service: "gmail",
@@ -36,13 +36,17 @@ const sendExcelMail = async (subject, body, email, filepath) => {
       html: body,
       attachments: [
         {
-          path: filepath,
+          path: mergeexcel,
         },
+        // {
+        //   path: filepath?.leavepath,
+        // },
       ],
     };
     const mailResult = await transport.sendMail(config);
     return mailResult;
   } catch (error) {
+    console.log(error);
     throw new Error("Error while sending mail");
   }
 };

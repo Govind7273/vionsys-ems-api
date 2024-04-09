@@ -13,7 +13,14 @@ const calculateDuration = (loginTime, logoutTime) => {
     );
     const hours = duration.hours();
     const minutes = duration.minutes();
-    return `${hours} hours ${minutes} minutes`;
+    const totalMinutes = hours * 60 + minutes;
+
+    if (totalMinutes < 360) {
+      // Less than 6 hours
+      return "Half Day";
+    } else {
+      return "Full Day";
+    }
   } else {
     return "";
   }
@@ -21,7 +28,7 @@ const calculateDuration = (loginTime, logoutTime) => {
 
 const CreatExcel = async (attendance) => {
   const currentDate = moment().format("DD-MM-YYYY");
-  const filePath = `Attendance_${currentDate}.xlsx`;
+  const filePath = `Attendances_${currentDate}.xlsx`;
   try {
     // Create a new Excel workbook
     const workbook = new ExcelJS.Workbook();
@@ -34,10 +41,16 @@ const CreatExcel = async (attendance) => {
       "Dates",
       "",
       "",
-      "Duration",
-      "",
+      "Work Mode",
     ]);
-    worksheet.addRow(["", "", "", "Login", "Logout", "", ""]);
+    worksheet.addRow(["", "", "", "Login", "Logout", ""]);
+
+    // Sort the attendance data by date in ascending order
+    attendance.forEach((userAttendance) => {
+      userAttendance.attendances.sort(
+        (a, b) => moment(a.date).valueOf() - moment(b.date).valueOf()
+      );
+    });
 
     // Iterate over each user's attendance data
     attendance.forEach((userAttendance) => {
@@ -52,7 +65,7 @@ const CreatExcel = async (attendance) => {
       const dates = [];
       const loginTimes = [];
       const logoutTimes = [];
-      const durations = [];
+      const workModes = [];
 
       // Iterate over each attendance record for the user
       attendances.forEach((attendance) => {
@@ -66,7 +79,7 @@ const CreatExcel = async (attendance) => {
         dates.push(formattedDate);
         loginTimes.push(formatTime(loginTime));
         logoutTimes.push(formatTime(logoutTime));
-        durations.push(calculateDuration(loginTime, logoutTime));
+        workModes.push(calculateDuration(loginTime, logoutTime));
       });
 
       // Add rows to the worksheet
@@ -74,7 +87,7 @@ const CreatExcel = async (attendance) => {
         dates.length,
         loginTimes.length,
         logoutTimes.length,
-        durations.length
+        workModes.length
       );
       for (let i = 0; i < maxRecords; i++) {
         worksheet.addRow([
@@ -83,16 +96,16 @@ const CreatExcel = async (attendance) => {
           dates[i] || "", // Date
           loginTimes[i] || "NA", // Login time
           logoutTimes[i] || "NA", // Logout time
-          durations[i] || "NA", // Duration
+          workModes[i] || "NA", // Work Mode (Duration)
         ]);
       }
 
       // Add an empty row between users
-      worksheet.addRow(["", "", "", "", "", "", ""]);
+      worksheet.addRow(["", "", "", "", "", ""]);
     });
- 
+
     await workbook.xlsx.writeFile(filePath);
-    
+
     return filePath;
   } catch (error) {
     fs.unlinkSync(filePath);
