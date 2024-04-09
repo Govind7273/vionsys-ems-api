@@ -43,5 +43,6 @@ router
     userController.deleteUser
   );
 
+  router.post("/birthdays",userController.employeeBirthday)
 
 module.exports = router;
