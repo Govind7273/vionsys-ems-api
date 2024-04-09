@@ -1,4 +1,5 @@
 const Task = require('../models/taskModels');
+const { getAllTasks } = require('../utils/getAllTasks');
 const getTasksFromUserId = require('../utils/getTasksFromUserId');
 function handleError(res, statusCode, errorMessage) {
     return res.status(statusCode).json({
@@ -92,5 +93,19 @@ exports.getTasksFromUserId = async (req, res) => {
     } catch (error) {
         console.log(error);
         handleError(res, 404, error.message);
+    }
+}
+
+
+exports.getAllTasks = async (req, res) => {
+    try {
+        const tasks = await getAllTasks();
+        res.status(200).json({
+            status: "success",
+            data: tasks
+        })
+    } catch (error) {
+        console.log(error);
+        handleError(res, 404, error.message)
     }
 }
