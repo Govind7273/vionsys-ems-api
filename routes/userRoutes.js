@@ -12,8 +12,13 @@ router.post("/signup", upload.single("file"), authController.signup);
 router.post("/login", authController.login);
 router.post("/forgotPassword", authController.forgotPassword);
 router.patch("/resetPassword/:token", authController.resetPassword);
-router.post("/sendverifyMail", authController.sendMailVerification);
+router.post(
+  "/sendverifyMail",
+  authController.protect,
+  authController.sendMailVerification
+);
 router.post("/verifyMail/:token", authController.mailVerifacation);
+
 // admin routes
 router
   .route("/")
@@ -37,8 +42,6 @@ router
     authController.restrictTo(["admin"]),
     userController.deleteUser
   );
-
-
 
 
 module.exports = router;
