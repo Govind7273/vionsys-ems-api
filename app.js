@@ -6,10 +6,12 @@ const userRouter = require("./routes/userRoutes");
 const leaveRouter = require("./routes/leaveRoute");
 const attendanceRouter = require("./routes/attendanceRoute");
 const notificationsRouter = require("./routes/notificationsRoute");
-const tasksRouter = require("./routes/taskRoute");
+const holidayRouter = require("./routes/holidaysRoute");
+const tasksRouter = require("./routes/holidaysRoute");
 const mongoSanitize = require("express-mongo-sanitize");
 const { xss } = require("express-xss-sanitizer");
 const cors = require("cors");
+
 
 const app = express();
 // Global Middleware - it should comes before the request
@@ -56,6 +58,7 @@ app.use("/api/v1/users/leaves", leaveRouter);
 app.use("/api/v1/users/attendance", attendanceRouter);
 app.use("/api/v1/users/notification", notificationsRouter);
 app.use("/api/v1/users/task", tasksRouter);
+app.use("/api/v1/users/holidays",holidayRouter);
 
 
 app.all("*", (req, res, next) => {
