@@ -7,7 +7,7 @@ const { upload } = require("../middleware/multer.middleware");
 
 //get params val
 // router.param("id", userController.checkID);
-
+router.get("/birthdays", userController.employeeBirthday);
 router.post("/signup", upload.single("file"), authController.signup);
 router.post("/login", authController.login);
 router.post("/forgotPassword", authController.forgotPassword);
@@ -43,6 +43,5 @@ router
     userController.deleteUser
   );
 
-  router.post("/birthdays",userController.employeeBirthday)
 
 module.exports = router;

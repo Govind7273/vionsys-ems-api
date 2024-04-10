@@ -6,7 +6,7 @@ const { removeFromCloudinary, uploadOnCloudinary } = require("../utils/cloudinar
 //   next();
 // };
 
-function handleError (res, statusCode, errorMessage) {
+function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
     status: "fail",
     error: errorMessage,
@@ -67,8 +67,8 @@ exports.deleteUser = async (req, res) => {
     const id = req.params.id;
 
     const user = await User.findByIdAndDelete(id);
-    const response=await removeFromCloudinary(user.profile);
-    if(!response){
+    const response = await removeFromCloudinary(user.profile);
+    if (!response) {
       throw new Error("user deleted but image is not able to delete");
     }
 
@@ -90,29 +90,29 @@ exports.deleteUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     let url;
-    const user=await User.findById(req.body._id);
-    if(!req?.file){
-       url=user.profile;
-    }else{
-      const response=await removeFromCloudinary(user.profile);
-      console.log("File removed From Cloudinary::",response)
-      const imagepath=req?.file.path;
-      url= await uploadOnCloudinary(imagepath);
+    const user = await User.findById(req.body._id);
+    if (!req?.file) {
+      url = user.profile;
+    } else {
+      const response = await removeFromCloudinary(user.profile);
+      console.log("File removed From Cloudinary::", response)
+      const imagepath = req?.file.path;
+      url = await uploadOnCloudinary(imagepath);
     }
-    user.passwordConfirm=user.password;
-    user.profile=url;
-    user.firstName=req.body.firstName;
-    user.lastName=req.body.lastName;
-    user.email=req.body.email;
-    user.address=req.body.address;
-    user.bloodGroup=req.body.bloodGroup;
-    user.gender=req.body.gender;
-    user.phone=req.body.phone;
-    user.dob=req.body.dob;
-    user.employeeId=req.body.employeeId;
-    user.designation=req.body.designation;
-    user.reportingManager=req.body.reportingManager;
-    user.teamLead=req.body.teamLead;
+    user.passwordConfirm = user.password;
+    user.profile = url;
+    user.firstName = req.body.firstName;
+    user.lastName = req.body.lastName;
+    user.email = req.body.email;
+    user.address = req.body.address;
+    user.bloodGroup = req.body.bloodGroup;
+    user.gender = req.body.gender;
+    user.phone = req.body.phone;
+    user.dob = req.body.dob;
+    user.employeeId = req.body.employeeId;
+    user.designation = req.body.designation;
+    user.reportingManager = req.body.reportingManager;
+    user.teamLead = req.body.teamLead;
     await user.save();
     res.status(200).json({
       status: "success",
@@ -130,55 +130,41 @@ exports.updateUser = async (req, res) => {
 
 exports.employeeBirthday = async (req, res) => {
   try {
-      const { month } = req.body;
-      const today = new Date();
-      const monthMap = {
-          "January": 1,
-          "February": 2,
-          "March": 3,
-          "April": 4,
-          "May": 5,
-          "June": 6,
-          "July": 7,
-          "August": 8,
-          "September": 9,
-          "October": 10,
-          "November": 11,
-          "December": 12
-      };
+    console.log("hello")
+    const monthNumber = new Date().getMonth();
+    console.log(monthNumber);
+    const today = new Date();
 
-      const monthNumber = monthMap[month];
+    if (!monthNumber) {
+      return res.status(400).json({ message: 'Invalid month provided' });
+    }
 
-      if (!monthNumber) {
-          return res.status(400).json({ message: 'Invalid month provided' });
+    // Calculate the month after today
+    const nextMonth = (today.getMonth() + 2) % 12 || 12; // Handle December case
+
+    const usersInMonth = await User.find({
+      $expr: {
+        $and: [
+          { $eq: [{ $month: '$dob' }, monthNumber + 1] },
+          { $gt: [{ $dayOfMonth: '$dob' }, today.getDate()] }
+        ]
       }
+    });
 
-      // Calculate the month after today
-      const nextMonth = (today.getMonth() + 2) % 12 || 12; // Handle December case
+    // Get users whose birthday is today
+    const usersToday = await User.find({
+      $expr: {
+        $and: [
+          { $eq: [{ $month: '$dob' }, today.getMonth() + 1] },
+          { $eq: [{ $dayOfMonth: '$dob' }, today.getDate()] }
+        ]
+      }
+    });
 
-      const usersInMonth = await User.find({
-          $expr: {
-              $and: [
-                  { $eq: [{ $month: '$dob' }, monthNumber] },
-                  { $gt: [{ $dayOfMonth: '$dob' }, today.getDate()] }
-              ]
-          }
-      });
-
-      // Get users whose birthday is today
-      const usersToday = await User.find({
-          $expr: {
-              $and: [
-                  { $eq: [{ $month: '$dob' }, today.getMonth() + 1] },
-                  { $eq: [{ $dayOfMonth: '$dob' }, today.getDate()] }
-              ]
-          }
-      });
-
-      res.json({ usersInMonth, usersToday });
+    res.json({ usersInMonth, usersToday });
   } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: 'Server Error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server Error' });
   }
 };
 
