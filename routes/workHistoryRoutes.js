@@ -5,8 +5,8 @@ const addWorkHistory = require("../controller/workHistoryController");
 
 router.post(
   "/",
-  // authController.protect,
-  // authController.restrictTo(["admin"]),
+  authController.protect,
+  authController.restrictTo(["admin"]),
   addWorkHistory.addWorkHistory
 );
 
