@@ -4,7 +4,7 @@ const welcomeKitController = require("../controller/welcomeKitController");
 const authController = require("../controller/authController");
 
 router.post(
-  "/",
+  "/create",
   authController.protect,
   authController.restrictTo(["admin"]),
   welcomeKitController.addTheKit
