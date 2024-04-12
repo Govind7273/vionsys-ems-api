@@ -6,24 +6,28 @@ const welcomeKitSchema = new mongoose.Schema({
     ref: "user",
     required: true,
   },
-  accessorieName: {
+  accessoryName: {
     type: String,
     required: true,
   },
-  accessorieCompany: {
+  accessoryCompany: {
     type: String,
   },
-  accessoriesId: {
+  accessoryId: {
     type: String,
   },
-  givenDate: {
+  assignDate: {
     type: Date,
     required: [true, "the date of giving of accessorie is requried"],
   },
-  givenBy: {
+  assignBy: {
     type: String,
     required: [true, "the name of given person is requried"],
   },
+  isReturned: {
+    type: Boolean,
+    default: false,
+  }
 });
 
 const WelcomeKit = mongoose.model("WelcomeKit", welcomeKitSchema);
