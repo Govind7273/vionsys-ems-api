@@ -8,6 +8,7 @@ const attendanceRouter = require("./routes/attendanceRoute");
 const notificationsRouter = require("./routes/notificationsRoute");
 const holidayRouter = require("./routes/holidaysRoute");
 const WelcomeKitRoute = require("./routes/welcomeKitRoute");
+const workHistoryRoute = require("./routes/workHistoryRoutes");
 const tasksRouter = require("./routes/taskRoute");
 const mongoSanitize = require("express-mongo-sanitize");
 const { xss } = require("express-xss-sanitizer");
@@ -60,6 +61,7 @@ app.use("/api/v1/users/notification", notificationsRouter);
 app.use("/api/v1/users/task", tasksRouter);
 app.use("/api/v1/users/holidays", holidayRouter);
 app.use("/api/v1/users/welcomeKit", WelcomeKitRoute);
+app.use("/api/v1/users/workHistory", workHistoryRoute);
 
 app.all("*", (req, res, next) => {
   res.status(404).json({
