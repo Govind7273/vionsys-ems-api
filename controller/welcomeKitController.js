@@ -8,6 +8,7 @@ function handleError(res, statusCode, errorMessage) {
   });
 }
 exports.addTheKit = async (req, res) => {
+  console.log("user added")
   try {
     const kitUser = await User.findOne({ _id: req?.body?.user });
     if (!kitUser) {
@@ -19,6 +20,7 @@ exports.addTheKit = async (req, res) => {
       .status(200)
       .json({ message: "Accessorie succesfully given to employee ", newKit });
   } catch (error) {
+    console.log(error)
     handleError(res, 404, error.message);
   }
 };
