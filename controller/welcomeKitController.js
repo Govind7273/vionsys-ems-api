@@ -45,7 +45,7 @@ exports.getKitDetails = async (req, res) => {
 exports.deleteKit = async (req, res) => {
   try {
     const kitId = req?.params?.id;
-    const kit = await WelcomeKit.findByIdAndDelete({ _id: kitId });
+    const kit = await WelcomeKit.findByIdAndUpdate({ _id: kitId }, { isReturned: true });
     if (!kit) {
       throw new Error("User accessorie not found or be deleted!");
     }

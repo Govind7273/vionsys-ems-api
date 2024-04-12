@@ -11,7 +11,7 @@ router.post(
 );
 router.get("/:userId", welcomeKitController.getKitDetails);
 
-router.delete(
+router.patch(
   "/:id",
   authController.protect,
   authController.restrictTo(["admin"]),
