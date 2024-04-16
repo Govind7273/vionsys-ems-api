@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const { sendEmail } = require("../utils/email");
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModels");
-const HOST = "http://localhost:5173";
+const HOST = process.env.HOST;
 const fs = require("fs");
 const { uploadOnCloudinary } = require("../utils/cloudinary");
 
