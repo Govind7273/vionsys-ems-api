@@ -27,6 +27,9 @@ const welcomeKitSchema = new mongoose.Schema({
   isReturned: {
     type: Boolean,
     default: false,
+  },
+  returnedDate: {
+    type: Date,
   }
 });
 
