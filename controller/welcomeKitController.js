@@ -47,11 +47,11 @@ exports.getKitDetails = async (req, res) => {
 exports.deleteKit = async (req, res) => {
   try {
     const kitId = req?.params?.id;
-    const kit = await WelcomeKit.findByIdAndUpdate({ _id: kitId }, { isReturned: true });
+    const kit = await WelcomeKit.findByIdAndUpdate({ _id: kitId }, { isReturned: true, returnedDate: Date.now() });
     if (!kit) {
       throw new Error("User accessorie not found or be deleted!");
     }
-    res.status(200).json({ message: "the employee accessorie deleted", kit });
+    res.status(200).json({ message: "Accessory Successfully returned to the management.!!!" });
   } catch (error) {
     handleError(res, 404, error?.message);
   }
