@@ -9,18 +9,6 @@ function handleError(res, statusCode, errorMessage) {
 }
 exports.addWorkHistory = async (req, res) => {
   try {
-    const { startDate, endDate } = req?.body;
-    const existingEntry = await WorkHistory.findOne({
-      $or: [
-        { startDate: startDate },
-        { endDate: endDate },
-        { startDate: { $lte: startDate }, endDate: { $gte: startDate } },
-        { startDate: { $lte: endDate }, endDate: { $gte: endDate } },
-      ],
-    });
-    if (existingEntry) {
-      throw new Error("work experience for this duration is already exist");
-    }
     const diff = getdiff(req?.body?.startDate, req?.body?.endDate);
     const userhistory = await WorkHistory.create({
       ...req?.body,
