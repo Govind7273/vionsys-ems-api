@@ -1,17 +1,20 @@
 const User = require("../models/userModels");
+const {
+  removeFromCloudinary,
+  uploadOnCloudinary,
+} = require("../utils/cloudinary");
 
 // exports.checkID = (req, res, next, val) => {
 //   console.log(`User id is ${val}`);
 //   next();
 // };
 
-function handleError (res, statusCode, errorMessage) {
+function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
     status: "fail",
     error: errorMessage,
   });
-};
-
+}
 
 exports.checkBody = (req, res, next) => {
   if (!req.body.email || !req.body.password) {
@@ -25,7 +28,7 @@ exports.checkBody = (req, res, next) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find();
-    console.log(users)
+
     res.status(200).json({
       status: "success",
       requestedAt: req.reqTime,
@@ -66,6 +69,10 @@ exports.deleteUser = async (req, res) => {
     const id = req.params.id;
 
     const user = await User.findByIdAndDelete(id);
+    const response = await removeFromCloudinary(user.profile);
+    if (!response) {
+      throw new Error("user deleted but image is not able to delete");
+    }
 
     if (!user) {
       throw new Error("Cannot delete. User not found !");
@@ -84,17 +91,85 @@ exports.deleteUser = async (req, res) => {
 
 exports.updateUser = async (req, res) => {
   try {
-    const user = await User.updateOne({ name: req.body.name });
-
+    console.log("the body =", req.body);
+    let url;
+    const user = await User.findById(req.body._id);
+    console.log("the user -", user);
+    if (!req?.file) {
+      url = user.profile;
+    } else {
+      const response = await removeFromCloudinary(user.profile);
+      console.log("File removed From Cloudinary::", response);
+      const imagepath = req?.file.path;
+      url = await uploadOnCloudinary(imagepath);
+    }
+    user.passwordConfirm = user.password;
+    user.profile = url;
+    user.firstName = req.body.firstName;
+    user.lastName = req.body.lastName;
+    user.email = req.body.email;
+    user.PerAddress = req.body.PerAddress;
+    user.bloodGroup = req.body.bloodGroup;
+    user.gender = req.body.gender;
+    user.phone = req.body.phone;
+    user.dob = req.body.dob;
+    user.employeeId = req.body.employeeId;
+    user.designation = req.body.designation;
+    user.reportingManager = req.body.reportingManager;
+    user.teamLead = req.body.teamLead;
+    user.doj = req.body.doj;
+    user.personalEmail = req.body.personalEmail;
+    user.TempAddress = req.body.TempAddress;
+    await user.save();
     res.status(200).json({
       status: "success",
       data: {
         message: "User successfully updated !",
-        user
+        user,
       },
     });
   } catch (error) {
+    console.log(error);
     handleError(res, 400, error.message);
   }
 };
 
+exports.employeeBirthday = async (req, res) => {
+  try {
+    console.log("hello");
+    const monthNumber = new Date().getMonth();
+    console.log(monthNumber);
+    const today = new Date();
+
+    if (!monthNumber) {
+      return res.status(400).json({ message: "Invalid month provided" });
+    }
+
+    // Calculate the month after today
+    const nextMonth = (today.getMonth() + 2) % 12 || 12; // Handle December case
+
+    const usersInMonth = await User.find({
+      $expr: {
+        $and: [
+          { $eq: [{ $month: "$dob" }, monthNumber + 1] },
+          { $gt: [{ $dayOfMonth: "$dob" }, today.getDate()] },
+        ],
+      },
+    });
+
+    // Get users whose birthday is today
+    const usersToday = await User.find({
+      $expr: {
+        $and: [
+          { $eq: [{ $month: "$dob" }, today.getMonth() + 1] },
+          { $eq: [{ $dayOfMonth: "$dob" }, today.getDate()] },
+        ],
+      },
+    });
+
+    res.json({ usersInMonth, usersToday });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server Error" });
+  }
+};

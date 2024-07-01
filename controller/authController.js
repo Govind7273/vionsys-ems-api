@@ -1,11 +1,12 @@
 const { promisify } = require("util");
 const crypto = require("crypto");
-const sendEmail = require("../utils/email");
+const { sendEmail } = require("../utils/email");
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModels");
-const { error, log } = require("console");
-const fs=require('fs');
+const HOST = process.env.HOST;
+const fs = require("fs");
 const { uploadOnCloudinary } = require("../utils/cloudinary");
+
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
     status: "fail",
@@ -44,19 +45,19 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 exports.signup = async (req, res, next) => {
-  const imagepath=req?.file.path;
+  const imagepath = req?.file.path;
   try {
-     console.log("image uploading started!!!")
-     const url=await uploadOnCloudinary(imagepath);
-      const newUser = await User.create({
-        ...req.body,
-        role: undefined,
-        profile:url
-      });
+    const url = await uploadOnCloudinary(imagepath);
+    const newUser = await User.create({
+      ...req.body,
+      role: undefined,
+      profile: url,
+    });
 
+    console.log(newUser);
     createSendToken(newUser, 201, res);
-    
   } catch (error) {
+    console.log(error);
     handleError(res, 401, error.message);
   }
 };
@@ -82,6 +83,7 @@ exports.login = async (req, res, next) => {
       token,
     });
   } catch (error) {
+    console.log(error);
     handleError(res, 401, error.message);
   }
 };
@@ -135,9 +137,11 @@ exports.restrictTo = (roles) => {
 
 exports.forgotPassword = async (req, res, next) => {
   try {
+    if (!req.body.email) {
+      throw new Error("please enter your Email");
+    }
     // 1) get user based on posted email
     const user = await User.findOne({ email: req.body.email });
-    console.log(user);
     if (!user) {
       throw new Error("User not found !");
     }
@@ -147,9 +151,7 @@ exports.forgotPassword = async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
 
     //3) send it to users email
-    const resetUrl = `${req.protocol}://${req.get(
-      "host"
-    )}/api/v1/users/resetPassword/${resetToken}`;
+    const resetUrl = `${HOST}/ResetPassword/${resetToken}`;
 
     const message = `Forgot your password? create new with ${resetUrl}. If you didn't forgot your password, please ignore this email`;
 
@@ -168,6 +170,7 @@ exports.forgotPassword = async (req, res, next) => {
       user.passwordResetExpires = undefined;
       user.passwordResetToken = undefined;
       await user.save({ validateBeforeSave: false });
+
       throw new Error("Error while sending email.");
     }
   } catch (error) {
@@ -183,33 +186,87 @@ exports.resetPassword = async (req, res, next) => {
       .update(req.params.token)
       .digest("hex");
 
-      const user = await User.findOne({
-        passwordResetToken: hashedToken,
-        passwordResetExpires: { $gt: Date.now() },
-      });
-      console.log(user, hashedToken);
-      // 2) if token has not expired and there is user - set the new password
-      if(!user) {
-        throw new Error("token is invalid or has expired")
-      }
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
+    });
 
-      user.password = req.body.password;
-      user.passwordConfirm = req.body.passwordConfirm;
-      user.passwordResetToken = undefined;
-      user.passwordResetExpires = undefined;
+    // 2) if token has not expired and there is user - set the new password
+    if (!user) {
+      throw new Error("token is invalid or has expired");
+    }
 
-      await user.save();
+    user.password = req.body.password;
+    user.passwordConfirm = req.body.passwordConfirm;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    user.passwordChangedAt = new Date();
 
-    // 3) update changedPasswordAt property for the user
+    await user.save();
 
     // 4) log the user in send jwt
     const token = signToken(user._id, user.role);
 
     res.status(200).json({
       status: "success",
+      message: "password reset succesfully",
       token,
     });
+  } catch (error) {
+    handleError(res, 401, error.message);
+  }
+};
 
+exports.sendMailVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      throw new Error("unauthorized access request");
+    }
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    upatetoken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    const resetUrl = `${HOST}/Verifymail/${resetToken}`;
+    const message = `Verify your mail with ${resetUrl}. If you didn't requested for this verifacation, please ignore this email`;
+    user.verificationToken = upatetoken;
+    user.verificationExpires = Date.now() + 10 * 60 * 1000;
+    await user.save({ validateBeforeSave: false });
+    await sendEmail({
+      email: user.email,
+      message,
+      subject: "Verify Mail : your Mail verification token valid for 10 min",
+    });
+    res.status(200).json({
+      status: "success",
+      message: "Email verification sent to your Email",
+    });
+  } catch (error) {
+    handleError(res, 401, error.message);
+  }
+};
+
+exports.mailVerifacation = async (req, res) => {
+  try {
+    const token = req.params.token;
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      verificationToken: hashedToken,
+      verificationExpires: { $gt: Date.now() },
+    });
+    console.log("user", user);
+    if (!user) {
+      throw new Error("token is invalid or has expired");
+    }
+
+    user.isVerified = true;
+    user.verificationToken = undefined;
+    user.verificationExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    res.status(200).json({ message: "Email verified succesfully", token });
   } catch (error) {
     handleError(res, 401, error.message);
   }

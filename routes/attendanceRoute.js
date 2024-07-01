@@ -1,9 +1,26 @@
-// const express = require("express");
-// const router = express.Router();
-// const attendanceController = require("../controller/attendanceController");
+const express = require("express");
+const router = express.Router();
+const attendanceController = require("../controller/attendanceController");
+const authController = require("../controller/authController");
 
-// router.post("/attendance",attendanceController.createAttendance);
-// router.get("/attendance", attendanceController.getAttendance);
 
-// router.get("/attendance/:userId", attendanceController.getAttendanceById);
-// router.put("/attendance/:userId", attendanceController.updateAttendance);
+// attendance routes
+router.post("/create", authController.protect, attendanceController.createAttendance);
+router.get("/get", authController.protect, attendanceController.getAttendance);
+router.get("/find/:userId", authController.protect, attendanceController.getAttendanceById);
+router.put("/update/:userId", authController.protect, attendanceController.updateAttendance);
+// excel sheet route
+router.post(
+    "/Excel/getExcel",
+    authController.protect,
+    authController.restrictTo(["admin"]),
+    attendanceController.excel
+);
+router.post(
+    "/Excel/getExcel/:userId",
+    authController.protect,
+    authController.restrictTo(["admin"]),
+    attendanceController.excelById
+);
+
+module.exports = router;

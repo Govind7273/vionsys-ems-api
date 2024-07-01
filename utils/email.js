@@ -1,28 +1,54 @@
 const nodemailer = require("nodemailer");
 
 const sendEmail = async (options) => {
-    console.log(options);
-  // 1 create transporter
   const transport = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
+    service: "gmail",
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
   });
 
-  // 2 define the email options
-  const mailOptions = {
-    from: "Dnyanesh ghodse <hello@danny.io>",
+  const config = {
+    from: process.env.EMAIL_USER,
     to: options.email,
     subject: options.subject,
-    text: options.message,
-    // html:
-  }
-  //3 send mail
-  console.log(mailOptions);
-  await transport.sendMail(mailOptions);
+    html: options.message,
+  };
+  const mailResult = await transport.sendMail(config);
+  return mailResult;
 };
 
-module.exports = sendEmail;
+const sendExcelMail = async (subject, body, email, mergeexcel) => {
+  try {
+    const transport = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    });
+
+    const config = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: subject,
+      html: body,
+      attachments: [
+        {
+          path: mergeexcel,
+        },
+        // {
+        //   path: filepath?.leavepath,
+        // },
+      ],
+    };
+    const mailResult = await transport.sendMail(config);
+    return mailResult;
+  } catch (error) {
+    console.log(error);
+    throw new Error("Error while sending mail");
+  }
+};
+
+module.exports = { sendExcelMail, sendEmail };
