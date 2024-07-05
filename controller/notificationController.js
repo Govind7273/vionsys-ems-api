@@ -2,7 +2,8 @@ const Notification = require("../models/notificationModel");
 const User = require("../models/userModels");
 const getAllNote = require("../utils/getAllNote");
 const getNotificationTokens = require("../utils/getUserNotification");
-const sendNotificationtoAll = require("../utils/sendNotificationtoAll");
+const sendNotificationToAll = require("../utils/sendNotificationtoAll");
+
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
     status: "fail",
@@ -25,7 +26,7 @@ exports.createNotification = async (req, res) => {
       });
     }
     const ArrayOfTokens = await getNotificationTokens();
-    await sendNotificationtoAll(ArrayOfTokens, values);
+    await sendNotificationToAll(ArrayOfTokens, values);
 
     res.status(201).json({
       message: "Notification Sent!!",
