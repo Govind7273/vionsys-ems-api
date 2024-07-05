@@ -19,14 +19,14 @@ admin.initializeApp({
 });
 
 const sendNotificationToAll = async (registrationTokens, values) => {
-  const { title, description, image } = values; // Accept image from server
+  const { title, description } = values; // Accept image from server
   try {
     const message = {
       tokens: registrationTokens,
       notification: {
         title: title,
         body: description,
-        image: image, // Use the image from the server
+        image: "/assets/vionsys_logo.png", // Use the image from the server
       },
       android: {
         priority: "high",
