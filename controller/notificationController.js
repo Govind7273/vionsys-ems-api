@@ -2,7 +2,7 @@ const Notification = require("../models/notificationModel");
 const User = require("../models/userModels");
 const getAllNote = require("../utils/getAllNote");
 const getNotificationTokens = require("../utils/getUserNotification");
-const sendNotificationToAll = require("../utils/sendNotificationtoAll");
+const sendNotificationToAll = require("../utils/sendNotificationToAll");
 
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
