@@ -26,21 +26,7 @@ const sendNotificationToAll = async (registrationTokens, values) => {
       notification: {
         title: title,
         body: description,
-        image: "/assets/vionsys_logo.png", // Use the image from the server
-      },
-      android: {
-        priority: "high",
-      },
-      apns: {
-        payload: {
-          aps: {
-            content_available: true,
-            mutable_content: true,
-          },
-        },
-        headers: {
-          "apns-priority": "10",
-        },
+        image: "https://vionsys-ems.org/assests/logo.png", // Use the image from the server
       },
     };
 
