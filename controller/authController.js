@@ -50,7 +50,6 @@ exports.signup = async (req, res, next) => {
     const url = await uploadOnCloudinary(imagepath);
     const newUser = await User.create({
       ...req.body,
-      role: undefined,
       profile: url,
     });
 
