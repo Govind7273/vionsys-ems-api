@@ -91,7 +91,9 @@ exports.getAttendance = async (req, res) => {
 exports.getAttendanceById = async (req, res) => {
   try {
     const userId = req.params.userId;
+    console.log(userId);
     const attendance = await Attendance.find({ user: userId });
+    console.log(attendance);
     res.status(200).json({
       status: "success",
       data: {
