@@ -10,7 +10,9 @@ const holidayRouter = require("./routes/holidaysRoute");
 const WelcomeKitRoute = require("./routes/welcomeKitRoute");
 const workHistoryRoute = require("./routes/workHistoryRoutes");
 const tasksRouter = require("./routes/taskRoute");
+const ticketRouter = require("./routes/ticketRoute");
 const mongoSanitize = require("express-mongo-sanitize");
+const resignationRouter = require("./routes/resignationRoute");
 const { xss } = require("express-xss-sanitizer");
 const cors = require("cors");
 
@@ -62,7 +64,8 @@ app.use("/api/v1/users/task", tasksRouter);
 app.use("/api/v1/users/holidays", holidayRouter);
 app.use("/api/v1/users/welcomeKit", WelcomeKitRoute);
 app.use("/api/v1/users/workHistory", workHistoryRoute);
-
+app.use("/api/v1/users/ticket", ticketRouter);
+app.use("/api/v1/users/resignation", resignationRouter);
 app.all("*", (req, res, next) => {
   res.status(404).json({
     status: "fail",
