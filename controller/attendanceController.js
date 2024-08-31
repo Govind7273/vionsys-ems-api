@@ -91,7 +91,9 @@ exports.getAttendance = async (req, res) => {
 exports.getAttendanceById = async (req, res) => {
   try {
     const userId = req.params.userId;
+    console.log(userId);
     const attendance = await Attendance.find({ user: userId });
+    console.log(attendance);
     res.status(200).json({
       status: "success",
       data: {
@@ -155,7 +157,7 @@ exports.excel = async (req, res, next) => {
         <p>An unauthorized attempt to access the attendance Excel file was detected from the following email address: <strong>[ ${email} ]</strong>.</p>
         <p>Immediate action has been taken to prevent any breach. We are conducting a thorough investigation to ensure ongoing security.</p>
         <p>Please review this incident promptly.</p>
-        <p>[ Vionsys IT Solution Private Limited ]</p>`,
+        <p>[ Vionsys IT Solution India Pvt. Ltd. ]</p>`,
       };
       // sending alert email to admin about anauthorized email access
       await sendEmail(options);
@@ -228,7 +230,7 @@ exports.excelById = async (req, res, next) => {
         <p>An unauthorized attempt to access the attendance Excel file was detected from the following email address: <strong>[ ${email} ]</strong>.</p>
         <p>Immediate action has been taken to prevent any breach. We are conducting a thorough investigation to ensure ongoing security.</p>
         <p>Please review this incident promptly.</p>
-        <p>[ Vionsys IT Solution Private Limited ]</p>`,
+        <p>[ Vionsys IT Solution India Pvt. Ltd. ]</p>`,
       };
       // sending alert email to admin about anauthorized email access
       await sendEmail(options);
