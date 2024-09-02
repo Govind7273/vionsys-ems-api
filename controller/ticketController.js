@@ -11,9 +11,9 @@ exports.raiseTicket = async (req, res) => {
     try {
         console.log(req.body)
         const ticket = await Ticket.create({ ...req.body });
-        if (!ticket) {
-            throw new Error("Failed to raise ticket");
-        }
+        // if (!ticket) {
+        //     throw new Error("Failed to raise ticket");
+        // }
         res.status(201).json({
             status: "success",
             data: ticket
@@ -28,7 +28,7 @@ exports.getTicketsByEmpID = async (req, res) => {
     try {
         const id = req.params.id;
         console.log(id)
-        const ticket = await Ticket.find({ employeeId: id });
+        const ticket = await Ticket.find({ ticketRaiser: id });
 
         // if (ticket.length === 0) {
         //     throw new Error("No ticket found for this employee");

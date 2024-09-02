@@ -15,13 +15,10 @@ const ticketSchema = new mongoose.Schema({
         enum: ['HIGH', 'NORMAL', 'LOW'], //if required in future-->use 'URGENT'
         required: [true, 'Priority Required!!']
     },
-    employeeName: {
-        type: String,
-        required: [true, 'Employee Name Required!!']
-    },
-    employeeId: {
-        type: String,
-        required: [true, 'Employee ID Required!!']
+    ticketRaiser: {
+        type: mongoose.Schema.ObjectId,
+        ref: 'User',
+        required: [true, 'Ticket Raiser Required!!']
     },
     ticketAssignedTo: {
         type: mongoose.Schema.Types.ObjectId,

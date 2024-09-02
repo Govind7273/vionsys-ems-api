@@ -30,8 +30,8 @@ router.post("/verifyMail/:token", authController.mailVerifacation);
 router
   .route("/")
   .get(
-    authController.protect,
-    authController.restrictTo(["admin"]),
+    // authController.protect,
+    // authController.restrictTo(["admin"]),
     userController.getAllUsers
   );
 
