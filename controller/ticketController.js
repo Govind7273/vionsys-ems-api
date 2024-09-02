@@ -1,5 +1,6 @@
 const Ticket = require("../models/ticketModel");
-
+const getTicketsByAssignedToID = require("../utils/getTicketsByAssignedToID");
+const getTicketsByEmpID = require("../utils/getTicketsByEmpID");
 
 function handleError(res, statusCode, errorMessage) {
     return res.status(statusCode).json({
@@ -28,7 +29,7 @@ exports.getTicketsByEmpID = async (req, res) => {
     try {
         const id = req.params.id;
         console.log(id)
-        const ticket = await Ticket.find({ ticketRaiser: id });
+        const ticket = await getTicketsByEmpID(id);
 
         // if (ticket.length === 0) {
         //     throw new Error("No ticket found for this employee");
@@ -46,7 +47,7 @@ exports.getTicketsByEmpID = async (req, res) => {
 exports.getTicketsByAssignedTo = async (req, res) => {
     try {
         const assignedToId = req.params.id;
-        const ticket = await Ticket.find({ ticketAssignedTo: assignedToId });
+        const ticket = await getTicketsByAssignedToID(assignedToId)
         res.status(200).json({
             status: "success",
             data: ticket
@@ -60,7 +61,8 @@ exports.getTicketsByAssignedTo = async (req, res) => {
 exports.updateTicketById = async (req, res) => {
     try {
         const id = req.params.id;
-        const { status, adminNoteOrResolutionNote, ticketResolvedDate } = req.body;
+        const ticketResolvedDate = new Date();
+        const { status, adminNoteOrResolutionNote } = req.body;
         const ticket = await Ticket.findById(id);
 
         if (!ticket) {
