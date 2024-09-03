@@ -53,11 +53,11 @@ const resignationSchema = mongoose.Schema({
   },
   resignationStatus: {
     type: String,
-    enum: ["Approved", "Rejected", "Pending"],
+    enum: ["Approved", "Rejected", "Pending", "Canceled"],
     default: "Pending",
     validate: {
       validator: function (value) {
-        return ["Approved", "Rejected", "Pending"].includes(value);
+        return ["Approved", "Rejected", "Pending", "Canceled"].includes(value);
       },
       message: (props) => `${props.value} is not a valid status!`,
     },
@@ -65,6 +65,9 @@ const resignationSchema = mongoose.Schema({
   cancleResignationReason: {
     type: String,
     default: "none",
+  },
+  cancleResignationDate: {
+    type: Date,
   },
   exitDate: {
     type: Date,
