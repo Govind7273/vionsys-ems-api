@@ -22,7 +22,6 @@ exports.createTask = async (req, res) => {
 
     // Validating the deadline to ensure it is in the future
     const isDeadLineValid = new Date(deadline) > new Date();
-    console.log(req.body);
     if (!isDeadLineValid)
       throw new Error("Deadline must be in the future only!!");
 
@@ -61,7 +60,6 @@ exports.createTask = async (req, res) => {
       data: task,
     });
   } catch (error) {
-    console.log(error);
     handleError(res, 400, error.message);
   }
 };
@@ -98,7 +96,6 @@ exports.updateTaskStart = async (req, res) => {
       title: "Task Started",
       description: `${user.firstName} ${user.lastName} started working on assigned task.`,
     };
-    console.log(notificationPayload);
 
     // Send notification to the admin
     await sendNotificationToOne(adminNotificationToken, notificationPayload);
@@ -119,13 +116,39 @@ exports.updateTaskCompleted = async (req, res) => {
   try {
     const completion_Date = new Date();
     const { id } = req.params;
+
+    // Find the task by its ID
     const task = await Task.findById(id);
     if (!task) throw new Error("Task not found");
+    // Ensure that the task has been started.
     if (!task.startedDate)
       throw new Error("Before start, can't complete task!!!");
+    
+    // Update the task status
     task.completedDate = completion_Date;
     task.status = "COMPLETED";
     const updatedTask = await task.save();
+
+    // Fetch the admin details by using assignedBy field from the task
+    const admin= await User.findById(task.assignedBy);
+    if(!admin) throw new Error("Admin not Found");
+    
+    const adminNotificationToken = admin?.notificationToken || "";
+
+    // Fetch User Details to get the user name
+    const user = await User.findById(task.user)
+    if(!user) throw new Error("No User Found");
+
+    // Construct the notification payload for the admin
+    const notificationPayload = {
+      title: "Task Completed",
+      description: `${user.firstName} ${user.lastName} Completed the assigned task`
+    };
+
+    // Send notification to admin
+    await sendNotificationToOne(adminNotificationToken, notificationPayload)
+
+    // Respond with Success
     res.status(200).json({
       status: "success",
       data: updatedTask,
