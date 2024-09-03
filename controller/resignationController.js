@@ -1,6 +1,7 @@
-const Resignation = require("../models/resignationModel");
 const Resignations = require("../models/resignationModel");
 const AppError = require("../utils/appError");
+const getAllResignationforAdmin = require("../utils/getAllResignationforAdmin");
+
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
     status: "fail",
@@ -10,7 +11,7 @@ function handleError(res, statusCode, errorMessage) {
 
 exports.createResignation = async (req, res) => {
   try {
-    const resignation = await Resignation.create(req.body);
+    const resignation = await Resignations.create(req.body);
     res.status(201).json({
       status: "success",
       data: resignation,
@@ -26,7 +27,7 @@ exports.createResignation = async (req, res) => {
 exports.getResignationFromUserId = async (req, res) => {
   try {
     const { id: userId } = req.params;
-    const resignation = await Resignation.find({ user: userId });
+    const resignation = await Resignations.find({ user: userId });
     res.status(200).json({
       status: "success",
       data: resignation,
@@ -37,10 +38,10 @@ exports.getResignationFromUserId = async (req, res) => {
   }
 };
 
-// Function to get all resignations
+// Function to get all resignations --admin
 exports.getAllResignation = async (req, res) => {
   try {
-    const resignations = await Resignation.find();
+    const resignations = await getAllResignationforAdmin();
     res.status(200).json({
       status: "success",
       data: resignations,
@@ -51,95 +52,113 @@ exports.getAllResignation = async (req, res) => {
   }
 };
 
-// Function to Approve Resignation
-exports.resignationApprovedByAdmin = async (req, res) => {
+// Function to update resignation status and note by admin
+exports.updateResignationStatus = async (req, res) => {
   try {
-    const { resignationId, userId, note } = req.body;
+    const { resignationId, userId, status, note } = req.body;
 
-    if (!resignationId || !userId || !note) {
+    if (!resignationId || !userId || !status || !note) {
       throw new AppError(400, "All fields are required");
     }
 
-    const resignationdata = await Resignations.findOne({ _id: resignationId });
-    if (!resignationdata) {
+    const resignation = await Resignations.findOne({ _id: resignationId, user: userId });
+    if (!resignation) {
       throw new AppError(404, "Resignation not found");
     }
 
-    if (resignationdata.resignationStatus === "Approved") {
-      throw new AppError(400, "Resignation already approved");
-    }
-    if (resignationdata.resignationStatus === "Rejected") {
-      throw new AppError(400, "Resignation is rejected, can't approve");
+    if (status === "Approved") {
+      if (resignation.resignationStatus === "Approved") {
+        throw new AppError(400, "Resignation already approved");
+      }
+      if (resignation.resignationStatus === "Rejected") {
+        throw new AppError(400, "Resignation is rejected, can't approve");
+      }
+
+      // Calculate exitDate manually if applicable
+      let exitDate = null;
+      if (resignation.resignationType === "Resign with Notice period" && resignation.noticePeriodDays) {
+        const approvedDate = new Date();
+        exitDate = new Date(approvedDate);
+        exitDate.setDate(approvedDate.getDate() + resignation.noticePeriodDays);
+        console.log(exitDate)
+      }
+
+      resignation.resignationStatus = "Approved";
+      resignation.adminApprovedDate = Date.now();
+      resignation.noteByAdmin = note;
+      resignation.exitDate = exitDate;
+
+    } else if (status === "Rejected") {
+      if (resignation.resignationStatus === "Rejected") {
+        throw new AppError(400, "Resignation already rejected");
+      }
+      if (resignation.resignationStatus === "Approved") {
+        throw new AppError(400, "Resignation is approved, can't reject");
+      }
+
+      resignation.resignationStatus = "Rejected";
+      resignation.adminRejectedDate = Date.now();
+      resignation.noteByAdmin = note;
+    } else {
+      throw new AppError(400, "Invalid status");
     }
 
-    // Calculate exitDate manually
-    let exitDate = null;
-    if (resignationdata.resignationType === "Resign with Notice period" && resignationdata.noticePeriodDays) {
-      const approvedDate = new Date();
-      exitDate = new Date(approvedDate);
-      exitDate.setDate(approvedDate.getDate() + resignationdata.noticePeriodDays);
-    }
-
-    const approvedResignation = await Resignations.findOneAndUpdate(
-      { _id: resignationId, user: userId },
-      {
-        $set: {
-          resignationStatus: "Approved",
-          adminApprovedDate: Date.now(),
-          noteByAdmin: note,
-          exitDate: exitDate // Set the calculated exitDate
-        },
-      },
-      { new: true }
-    );
+    await resignation.save();
 
     res.status(200).json({
-      message: "Resignation approved",
-      approvedResignation,
+      message: `Resignation ${status.toLowerCase()} successfully`,
+      data: resignation,
     });
   } catch (error) {
-    handleError(res, error.statusCode, error.message);
+    console.error(error); // Add logging for better debugging
+    handleError(res, error.statusCode || 500, error.message);
   }
 };
 
+//----------------------------
 
-exports.resignationRejectedByAdmin = async (req, res) => {
+// Function to cancel resignation by user
+exports.cancelResignationByUser = async (req, res) => {
   try {
-    const { resignationId, userId, note } = req.body;
+    const { resignationId, userId, reason } = req.body;
 
-    if (!resignationId || !userId || !note) {
+    console.log(req.body);
+    if (!resignationId || !userId || !reason) {
       throw new AppError(400, "All fields are required");
     }
 
-    const resignationdata = await Resignations.findOne({ _id: resignationId });
-    if (!resignationdata) {
+    const resignation = await Resignations.findOne({
+      _id: resignationId,
+      user: userId,
+    });
+
+    if (!resignation) {
       throw new AppError(404, "Resignation not found");
     }
-    if (resignationdata.resignationStatus === "Rejected") {
-      throw new AppError(400, "Resignation already Rejected");
-    }
-    if (resignationdata.resignationStatus === "Approved") {
-      throw new AppError(400, "Resignation is Approved , can't rejected");
-    }
-    
 
-    const approvedResignation = await Resignations.findOneAndUpdate(
+    if (resignation.resignationStatus !== "Pending") {
+      throw new AppError(400, "Only pending resignations can be canceled");
+    }
+
+    const canceledResignation = await Resignations.findOneAndUpdate(
       { _id: resignationId, user: userId },
       {
         $set: {
-          resignationStatus: "Rejected",
-          adminRejectedDate:Date.now(),
-          noteByAdmin: note,
+          resignationStatus: "Canceled",
+          resignationCancle: true,
+          cancleResignationReason: reason,
+          cancleResignationDate: Date.now(),
         },
       },
       { new: true }
     );
 
     res.status(200).json({
-      message: "Resignation Rejected",
-      approvedResignation,
+      message: "Resignation canceled successfully",
+      canceledResignation,
     });
   } catch (error) {
-    handleError(res, error.statusCode, error.message);
+    console.error(error); // Add logging for better debugging
+    handleError(res, error.statusCode || 500, error.message);
   }
 };
