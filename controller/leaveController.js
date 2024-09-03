@@ -3,6 +3,7 @@ const Leaves = require("../models/leavesmodel");
 const LeavesCount = require("../models/leaveCountModel");
 const getUserHistory = require("../utils/GetLeaveHistory");
 const AppError = require("../utils/appError");
+const { sendNotificationToOne } = require("../utils/sendNotificationToUser");
 
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
@@ -42,7 +43,7 @@ exports.createLeaveRequest = async (req, res) => {
   try {
     const { userId, ...leaveData } = req.body;
     // console.log(leaveData)
-   
+
     if (!userId) {
       throw new Error("userId is required");
     }
@@ -55,7 +56,6 @@ exports.createLeaveRequest = async (req, res) => {
     if (!leaveData?.leaveStart || !leaveData?.leaveEnd) {
       throw new Error("leaveStart and leaveEnd dates are required");
     }
-
 
     const currentTime = new Date();
     const currentHour = currentTime.getHours();
@@ -78,19 +78,18 @@ exports.createLeaveRequest = async (req, res) => {
 
     // Check if the leave start day is equal to the previous day
     if (leaveStartDay === oneDayBefore.getDate()) {
-  
-    if (!leaveData?.isHalfDay) {
-    // Full-day leave condition
-      if (currentHour >= 10) {
-        throw new Error("Full day leave must be applied before 10 AM");
+      if (!leaveData?.isHalfDay) {
+        // Full-day leave condition
+        if (currentHour >= 10) {
+          throw new Error("Full day leave must be applied before 10 AM");
+        }
+      } else {
+        // Half-day leave condition
+        if (currentHour > 14) {
+          throw new Error("Half day leave must be applied before 1 PM");
+        }
       }
-    } else {
-    // Half-day leave condition
-      if ( currentHour > 14) {
-        throw new Error("Half day leave must be applied before 1 PM");
-      }
-   }
-  }
+    }
 
     if (
       new Date(leaveData?.leaveStart) < new Date().setHours(0, 0, 0, 0) ||
@@ -165,6 +164,25 @@ exports.createLeaveRequest = async (req, res) => {
       await LeavesCount.findOneAndUpdate({ user: userId }, updateFields, {
         upsert: true,
       });
+
+      // Fetch all admins or a specific admin
+      const admins = await User.find({ role: "admin" }); // Assuming 'role' is a field that specifies user roles
+      if (admins.length === 0) throw new Error("No admin found!");
+
+      // Send notification to all admins
+      admins.forEach(async (admin) => {
+        const adminNotificationToken = admin?.notificationToken || "";
+
+        const notificationPayload = {
+          title: "Leave Request Received",
+          description: `${userExist.firstName} ${userExist.lastName} has applied for ${leave.leaveType}.`,
+        };
+
+        await sendNotificationToOne(
+          adminNotificationToken,
+          notificationPayload
+        );
+      });
     }
 
     res.status(201).json({ message: "Leave request is submitted" });
@@ -191,7 +209,9 @@ exports.cancelLeaveRequest = async (req, res) => {
     // Check if the current time is before 2 PM
     const currentHour = currentDate.getHours();
     if (currentHour >= 14) {
-      throw new Error("Leave can only be cancelled before 2 PM on the current date.");
+      throw new Error(
+        "Leave can only be cancelled before 2 PM on the current date."
+      );
     }
 
     // Check if leave has already started
@@ -234,7 +254,9 @@ exports.cancelLeaveRequest = async (req, res) => {
     if (
       ["Rejected", "Cancelled", "Expired"].includes(theUserLeave?.leaveStatus)
     ) {
-      throw new Error(`Can't cancel request, it is already ${theUserLeave.leaveStatus.toLowerCase()}.`);
+      throw new Error(
+        `Can't cancel request, it is already ${theUserLeave.leaveStatus.toLowerCase()}.`
+      );
     }
 
     const updatecount = await LeavesCount.updateOne({ user }, updateremove);
@@ -282,7 +304,7 @@ exports.getleavesHistoryById = async (req, res) => {
     const useCurrentDateLeaves = await Leaves.find({
       user: userId,
       leaveStatus: "Pending",
-      leaveStart: { $gte: currentDate, $lt: expirationTime }
+      leaveStart: { $gte: currentDate, $lt: expirationTime },
     });
 
     // Loop through current date leaves and update their status if needed
@@ -343,7 +365,9 @@ exports.getleavesHistoryById = async (req, res) => {
       if (expiredCount) {
         await LeavesCount.findOneAndUpdate(
           { user: userId },
-          { $inc: { pendingLeaves: -expiredCount, expiredLeaves: expiredCount } }
+          {
+            $inc: { pendingLeaves: -expiredCount, expiredLeaves: expiredCount },
+          }
         );
       }
     }
@@ -392,10 +416,11 @@ exports.getleaveHistory = async (req, res) => {
 
 exports.leaveApprovedByAdmin = async (req, res) => {
   try {
-    const { leaveId, userId, note } = req.body;
+    const { leaveId, userId, note, adminId } = req.body; // Include adminId in the request body
 
-    if (!leaveId || !userId || !note) {
-      throw new AppError(400, "all fields are required");
+    if (!leaveId || !userId || !note || !adminId) {
+      // Check for adminId as well
+      throw new AppError(400, "All fields are required");
     }
 
     const leavedata = await Leaves.findOne({ _id: leaveId });
@@ -408,52 +433,95 @@ exports.leaveApprovedByAdmin = async (req, res) => {
     }
 
     if (leavedata.leaveStatus === "Cancelled") {
-      throw new AppError(400, "leave is cancelled by employee! can't update");
+      throw new AppError(400, "Leave is cancelled by employee! Can't update");
     }
+
     if (leavedata.leaveStatus === "Rejected") {
-      throw new AppError(400, "Leave is rejected, can't Approved");
+      throw new AppError(400, "Leave is rejected, can't be approved");
     }
+
     if (leavedata.leaveStatus === "Expired") {
-      throw new AppError(400, "Leave is Expired	, can't Approved");
+      throw new AppError(400, "Leave is expired, can't be approved");
     }
-    const approvedleave = await Leaves.findOneAndUpdate(
+
+    // Approve the leave
+    const approvedLeave = await Leaves.findOneAndUpdate(
       { _id: leaveId, user: userId },
       { $set: { leaveStatus: "Approved", noteByAdmin: note } },
       { new: true }
     );
 
+    // Update the leave counts
     const leavesCountUpdate = await LeavesCount.findOneAndUpdate(
       { user: userId },
       { $inc: { pendingLeaves: -1, approvedLeaves: 1 } }
     );
 
+    // Fetch the user to get their notification token
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    // Fetch the admin to get their name for the notification
+    const admin = await User.findById(adminId);
+    if (!admin) {
+      throw new AppError(404, "Admin not found");
+    }
+
+    const userNotificationToken = user.notificationToken || "";
+
+    // Create a notification payload
+    const notificationPayload = {
+      title: "Leave Approved",
+      description: `Your leave request has been approved by ${admin.firstName} ${admin.lastName}.`,
+    };
+    // Send notification to the user
+    await sendNotificationToOne(userNotificationToken, notificationPayload);
+
     res.status(200).json({
       message: "Leave approved",
-      approvedleave,
+      approvedLeave,
       leavesCountUpdate,
     });
   } catch (error) {
-    handleError(res, error.statusCode, error.message);
+    console.error("Error:", error);
+    handleError(res, error.statusCode || 400, error.message);
   }
 };
 
 exports.leaveRejectedByAdmin = async (req, res) => {
   try {
-    const { leaveId, userId, note } = req.body;
+    const { leaveId, userId, note, adminId } = req.body;
 
-    if (!leaveId || !userId || !note) {
-      throw new AppError(400, "leaveId, userId, and note are required");
+    if (!leaveId || !userId || !note || !adminId) {
+      // Check for adminId as well
+      throw new AppError(
+        400,
+        "leaveId, userId, note, and adminId are required"
+      );
     }
 
     const leavedata = await Leaves.findOne({ _id: leaveId });
     if (!leavedata) {
       throw new AppError(404, "Leave not found");
     }
-    if (["Cancelled", "Rejected", "Approved", "Expired"].includes(leavedata.leaveStatus)) {
-      throw new AppError(400, `Leave is already ${leavedata.leaveStatus}, cannot be rejected.`);
+
+    if (
+      ["Cancelled", "Rejected", "Approved", "Expired"].includes(
+        leavedata.leaveStatus
+      )
+    ) {
+      throw new AppError(
+        400,
+        `Leave is already ${leavedata.leaveStatus}, cannot be rejected.`
+      );
     }
 
-    const leaveTypeField = leavedata.leaveType.toLowerCase().split(" ").join("");
+    const leaveTypeField = leavedata.leaveType
+      .toLowerCase()
+      .split(" ")
+      .join("");
     const leaveDays = leavedata.leaveDays;
 
     // Update the leave status to 'Rejected' and save the admin note
@@ -465,7 +533,7 @@ exports.leaveRejectedByAdmin = async (req, res) => {
 
     // Prepare the update for leave counts, restoring the leave days
     let leaveCountUpdate = {
-      $inc: { pendingLeaves: -1, rejectedLeaves: 1 }
+      $inc: { pendingLeaves: -1, rejectedLeaves: 1 },
     };
 
     if (leaveTypeField !== "unpaidleave") {
@@ -481,6 +549,29 @@ exports.leaveRejectedByAdmin = async (req, res) => {
       { new: true }
     );
 
+    // Fetch the user to get their notification token
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    // Fetch the admin to get their name for the notification
+    const admin = await User.findById(adminId);
+    if (!admin) {
+      throw new AppError(404, "Admin not found");
+    }
+
+    const userNotificationToken = user.notificationToken || "";
+
+    // Create a notification payload
+    const notificationPayload = {
+      title: "Leave Rejected",
+      description: `Your leave request has been rejected by ${admin.firstName} ${admin.lastName}.`,
+    };
+
+    // Send notification to the user
+    await sendNotificationToOne(userNotificationToken, notificationPayload);
+
     res.status(200).json({
       message: "Leave rejected successfully",
       approvedleave,
@@ -490,4 +581,3 @@ exports.leaveRejectedByAdmin = async (req, res) => {
     handleError(res, error.statusCode || 400, error.message);
   }
 };
-
