@@ -1,6 +1,8 @@
 const Resignations = require("../models/resignationModel");
 const AppError = require("../utils/appError");
 const getAllResignationforAdmin = require("../utils/getAllResignationforAdmin");
+const User = require("../models/userModels");
+const { sendNotificationToOne } = require("../utils/sendNotificationToUser");
 
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
@@ -12,6 +14,31 @@ function handleError(res, statusCode, errorMessage) {
 exports.createResignation = async (req, res) => {
   try {
     const resignation = await Resignations.create(req.body);
+    console.log(req.body);
+
+    // Fetch User Deatils who submitted the Resignation
+    const user = await User.findById(resignation.user);
+    if (!user) {
+      throw new Error("User not Found");
+    }
+
+    // Fetch all admins or a specific admin
+    const admins = await User.find({ role: "admin" }); // Assuming 'role' is a field that specifies user roles
+    if (admins.length === 0) throw new Error("No admin found!");
+
+    // Send notification to all admins
+    admins.forEach(async (admin) => {
+      const adminNotificationToken = admin?.notificationToken || "";
+
+      const notificationPayload = {
+        title: "Resignation Request",
+        description: `${user.firstName} ${user.lastName} has applied for Resignation.`,
+      };
+      console.log(notificationPayload);
+
+      await sendNotificationToOne(adminNotificationToken, notificationPayload);
+    });
+
     res.status(201).json({
       status: "success",
       data: resignation,
@@ -55,17 +82,20 @@ exports.getAllResignation = async (req, res) => {
 // Function to update resignation status and note by admin
 exports.updateResignationStatus = async (req, res) => {
   try {
-    const { resignationId, userId, status, note } = req.body;
-
-    if (!resignationId || !userId || !status || !note) {
-      throw new AppError(400, "All fields are required");
+    const { resignationId, userId, status, note, adminId } = req.body; // Include adminId in the request body
+    if (!resignationId || !userId || !status || !note || !adminId) {
+      throw new AppError(400, "All fields are required, including adminId");
     }
 
-    const resignation = await Resignations.findOne({ _id: resignationId, user: userId });
+    const resignation = await Resignations.findOne({
+      _id: resignationId,
+      user: userId,
+    });
     if (!resignation) {
       throw new AppError(404, "Resignation not found");
     }
 
+    // Check resignation status to ensure it can be updated
     if (status === "Approved") {
       if (resignation.resignationStatus === "Approved") {
         throw new AppError(400, "Resignation already approved");
@@ -74,20 +104,21 @@ exports.updateResignationStatus = async (req, res) => {
         throw new AppError(400, "Resignation is rejected, can't approve");
       }
 
-      // Calculate exitDate manually if applicable
+      // Calculate exitDate if applicable
       let exitDate = null;
-      if (resignation.resignationType === "Resign with Notice period" && resignation.noticePeriodDays) {
+      if (
+        resignation.resignationType === "Resign with Notice period" &&
+        resignation.noticePeriodDays
+      ) {
         const approvedDate = new Date();
         exitDate = new Date(approvedDate);
         exitDate.setDate(approvedDate.getDate() + resignation.noticePeriodDays);
-        console.log(exitDate)
       }
 
       resignation.resignationStatus = "Approved";
       resignation.adminApprovedDate = Date.now();
       resignation.noteByAdmin = note;
       resignation.exitDate = exitDate;
-
     } else if (status === "Rejected") {
       if (resignation.resignationStatus === "Rejected") {
         throw new AppError(400, "Resignation already rejected");
@@ -105,12 +136,36 @@ exports.updateResignationStatus = async (req, res) => {
 
     await resignation.save();
 
+    // Fetch the user to get their notification token
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    // Fetch the admin to get their name for the notification
+    const admin = await User.findById(adminId);
+    if (!admin) {
+      throw new AppError(404, "Admin not found");
+    }
+
+    const userNotificationToken = user.notificationToken || "";
+
+    // Create a notification payload
+    const notificationPayload = {
+      title: `Resignation ${status}`,
+      description: `Your resignation request has been ${status.toLowerCase()} by ${
+        admin.firstName
+      } ${admin.lastName}.`,
+    };
+
+    // Send notification to the user
+    await sendNotificationToOne(userNotificationToken, notificationPayload);
+
     res.status(200).json({
       message: `Resignation ${status.toLowerCase()} successfully`,
       data: resignation,
     });
   } catch (error) {
-    console.error(error); // Add logging for better debugging
     handleError(res, error.statusCode || 500, error.message);
   }
 };
@@ -121,8 +176,6 @@ exports.updateResignationStatus = async (req, res) => {
 exports.cancelResignationByUser = async (req, res) => {
   try {
     const { resignationId, userId, reason } = req.body;
-
-    console.log(req.body);
     if (!resignationId || !userId || !reason) {
       throw new AppError(400, "All fields are required");
     }
@@ -152,6 +205,28 @@ exports.cancelResignationByUser = async (req, res) => {
       },
       { new: true }
     );
+
+    // Fetch User Details who cancelled the resignation
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    // Fetch all admins or a specific admin
+    const admins = await User.find({ role: "admin" }); // Assuming 'role' is a field that specifies user roles
+    if (admins.length === 0) throw new AppError(404, "No admin found!");
+
+    // Send notification to all admins
+    admins.forEach(async (admin) => {
+      const adminNotificationToken = admin?.notificationToken || "";
+
+      const notificationPayload = {
+        title: "Resignation Canceled",
+        description: `${user.firstName} ${user.lastName} has canceled their resignation.`,
+      };
+
+      await sendNotificationToOne(adminNotificationToken, notificationPayload);
+    });
 
     res.status(200).json({
       message: "Resignation canceled successfully",
