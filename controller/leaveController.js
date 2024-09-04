@@ -206,60 +206,51 @@ exports.cancelLeaveRequest = async (req, res) => {
     const leaveStartDate = new Date(theUserLeave.leaveStart);
     const leaveEndDate = new Date(theUserLeave.leaveEnd);
 
-    // Check if the current time is before 2 PM
-    const currentHour = currentDate.getHours();
-    if (currentHour >= 14) {
-      throw new Error(
-        "Leave can only be cancelled before 2 PM on the current date."
-      );
+    // Reset hours, minutes, seconds, and milliseconds for date comparison
+    currentDate.setHours(0, 0, 0, 0);
+    leaveStartDate.setHours(0, 0, 0, 0);
+
+    // Check if leave can be cancelled based on the date and time
+    const currentHour = new Date().getHours();
+
+    if (currentDate > leaveStartDate) {
+      throw new Error("Leave has already started and cannot be cancelled.");
     }
 
-    // Check if leave has already started
-    if (currentDate > leaveStartDate && currentDate < leaveEndDate) {
-      throw new Error("Leave has already started.");
+    if (currentDate.toDateString() === leaveStartDate.toDateString() && currentHour >= 14) {
+      throw new Error("Leave on the current date can only be cancelled before 2 PM.");
     }
 
-    const leaveTypeField = theUserLeave?.leaveType
-      .toLowerCase()
-      .split(" ")
-      .join("");
+    // Only pending or approved leaves can be cancelled
+    if (theUserLeave.leaveStatus !== "Pending" && theUserLeave.leaveStatus !== "Approved") {
+      throw new Error("Only pending or approved leave requests can be cancelled.");
+    }
+
+    const leaveTypeField = theUserLeave.leaveType.toLowerCase().split(" ").join("");
 
     let updateremove = {};
 
-    switch (theUserLeave?.leaveStatus) {
-      case "Pending":
-        updateremove = {
-          $inc: { pendingLeaves: -1, cancelledLeaves: 1 },
-        };
-        {
-          leaveTypeField !== "unpaidleave"
-            ? (updateremove.$inc[leaveTypeField] = theUserLeave?.leaveDays)
-            : (updateremove.$inc[leaveTypeField] = -theUserLeave?.leaveDays);
-        }
-        break;
-      case "Approved":
-        updateremove = {
-          $inc: { approvedLeaves: -1, cancelledLeaves: 1 },
-        };
-        {
-          leaveTypeField !== "unpaidleave"
-            ? (updateremove.$inc[leaveTypeField] = theUserLeave?.leaveDays)
-            : (updateremove.$inc[leaveTypeField] = -theUserLeave?.leaveDays);
-        }
-        break;
-      default:
-        throw new Error("Only pending and approved leaves can be cancelled.");
+    if (theUserLeave.leaveStatus === "Pending") {
+      updateremove = {
+        $inc: { pendingLeaves: -1, cancelledLeaves: 1 }
+      };
+    } else if (theUserLeave.leaveStatus === "Approved") {
+      updateremove = {
+        $inc: { approvedLeaves: -1, cancelledLeaves: 1 }
+      };
     }
 
-    if (
-      ["Rejected", "Cancelled", "Expired"].includes(theUserLeave?.leaveStatus)
-    ) {
-      throw new Error(
-        `Can't cancel request, it is already ${theUserLeave.leaveStatus.toLowerCase()}.`
-      );
+    // Adjust leave type count if necessary
+    if (leaveTypeField !== "unpaidleave") {
+      updateremove.$inc[leaveTypeField] = theUserLeave.leaveDays;
+    } else {
+      updateremove.$inc[leaveTypeField] = -theUserLeave.leaveDays;
     }
 
+    // Update the leave count
     const updatecount = await LeavesCount.updateOne({ user }, updateremove);
+
+    // Mark the leave as cancelled
     const Leavesupdate = await Leaves.updateOne(
       { _id: leaveId },
       {
@@ -270,13 +261,16 @@ exports.cancelLeaveRequest = async (req, res) => {
       }
     );
 
-    res
-      .status(200)
-      .json({ message: "Cancellation successful", updatecount, Leavesupdate });
+    res.status(200).json({
+      message: "Cancellation successful",
+      updatecount,
+      Leavesupdate,
+    });
   } catch (error) {
     handleError(res, 400, error.message);
   }
 };
+
 
 exports.getleavesHistoryById = async (req, res) => {
   try {
@@ -311,6 +305,22 @@ exports.getleavesHistoryById = async (req, res) => {
     for (const leave of useCurrentDateLeaves) {
       if (new Date() >= expirationTime) {
         leave.leaveStatus = "Expired";
+
+        // Update the LeavesCount document
+        const leaveTypeField = leave.leaveType.toLowerCase().split(" ").join("");
+        const expiredDays = leave.leaveDays;
+
+        if (leaveTypeField === "unpaidleave") {
+          await LeavesCount.findOneAndUpdate(
+            { user: userId },
+            { $inc: { [leaveTypeField]: -expiredDays, expiredLeaves: 1, pendingLeaves: -1 } }
+          );
+        } else {
+          await LeavesCount.findOneAndUpdate(
+            { user: userId },
+            { $inc: { [leaveTypeField]: expiredDays, expiredLeaves: 1, pendingLeaves: -1 } }
+          );
+        }
       } else {
         leave.leaveStatus = "Pending"; // Keep as pending if before 2 PM
       }
@@ -332,23 +342,22 @@ exports.getleavesHistoryById = async (req, res) => {
       const leaveTypeField = leave.leaveType.toLowerCase().split(" ").join("");
       const expiredDays = leave.leaveDays;
 
-      // Increment the leave count in LeavesCount document based on leave type and days
       if (leaveTypeField === "unpaidleave") {
         await LeavesCount.findOneAndUpdate(
           { user: userId },
-          { $inc: { [leaveTypeField]: -expiredDays } }
+          { $inc: { [leaveTypeField]: -expiredDays, expiredLeaves: 1, pendingLeaves: -1 } }
         );
       } else {
         await LeavesCount.findOneAndUpdate(
           { user: userId },
-          { $inc: { [leaveTypeField]: expiredDays } }
+          { $inc: { [leaveTypeField]: expiredDays, expiredLeaves: 1, pendingLeaves: -1 } }
         );
       }
     }
 
     // Mark expired leaves as "Expired" in the database if the current time is past 2 PM
     if (currentDate >= expirationTime) {
-      const expiredleaves = await Leaves.updateMany(
+      await Leaves.updateMany(
         {
           user: userId,
           leaveStatus: "Pending",
@@ -359,31 +368,21 @@ exports.getleavesHistoryById = async (req, res) => {
         },
         { $set: { leaveStatus: "Expired" } }
       );
-
-      // Increment the expiredLeaves count in LeavesCount document
-      const expiredCount = expiredleaves?.modifiedCount;
-      if (expiredCount) {
-        await LeavesCount.findOneAndUpdate(
-          { user: userId },
-          {
-            $inc: { pendingLeaves: -expiredCount, expiredLeaves: expiredCount },
-          }
-        );
-      }
     }
 
     // Get the leave history of the user
     const userAllLeaves = await getUserHistory(userId);
 
     // Send the leave history in the response along with a success message
-    res
-      .status(200)
-      .json({ message: "Leave history retrieved successfully", userAllLeaves });
+    res.status(200).json({
+      message: "Leave history retrieved successfully",
+      userAllLeaves,
+    });
   } catch (error) {
-    // console.log(error);
     handleError(res, 400, error.message);
   }
 };
+
 
 exports.getleaveHistory = async (req, res) => {
   try {
