@@ -23,4 +23,11 @@ router.post(
     attendanceController.excelById
 );
 
+router.put(    
+    "/admin/update/:userId",
+    //  authController.protect,
+    //  authController.restrictTo(["admin"]),
+     attendanceController.adminUpdateAttendance 
+);
+
 module.exports = router;

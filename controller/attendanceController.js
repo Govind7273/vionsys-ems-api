@@ -59,6 +59,7 @@ exports.createAttendance = async (req, res) => {
     // Create new attendance record
     if (!existingAttendance) {
       const attendance = await Attendance.create(req.body);
+      console.log(attendance)
       res.status(200).json({
         status: "success",
         data: {
@@ -259,6 +260,64 @@ exports.excelById = async (req, res, next) => {
     });
   } catch (error) {
     handleError(res, 401, error.message);
+  }
+};
+
+exports.adminUpdateAttendance = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { date, loginTime, logoutTime } = req.body;
+    console.log(date, loginTime, logoutTime)
+
+    if (!date || (!loginTime && !logoutTime)) {
+      throw new AppError(400, "Date, and at least one of loginTime or logoutTime are required");
+    }
+
+    // Convert the provided date to the start and end of that day
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Find the attendance record for the user on the specified date
+    const attendance = await Attendance.findOne({
+      user: userId,
+      date: {
+        $gte: startOfDay,
+        $lt: endOfDay,
+      },
+    });
+
+    if (!attendance) {
+      const attendance = await Attendance.create(req.body);
+      res.status(200).json({
+        status: "success",
+        data: {
+          attendance,
+        },
+      });
+      // throw new AppError(404, "Attendance record not found for the specified date");
+    }
+
+    // Update loginTime and/or logoutTime
+    if (loginTime) attendance.loginTime = loginTime;
+    if (logoutTime) attendance.logoutTime = logoutTime;
+
+    await attendance.save();
+
+    console.log(loginTime,logoutTime)
+
+    res.status(200).json({
+      status: "success",
+      message: "Attendance updated successfully",
+      data: {
+        attendance,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating attendance:", error);
+    handleError(res, error.statusCode || 500, error.message);
   }
 };
 
