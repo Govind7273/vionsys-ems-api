@@ -13,13 +13,25 @@ function handleError(res, statusCode, errorMessage) {
 
 exports.createResignation = async (req, res) => {
   try {
+    const userId = req.body.user; // Assuming the userId is passed in the request body
+
+    const existingResignation = await Resignations.findOne({
+      user: userId,
+      resignationStatus: { $in: ["Approved", "Pending"] },
+    });
+
+    if (existingResignation) {
+        throw new AppError(400, "You have already applied for resignation");
+    }
+
+    // Create a new resignation
     const resignation = await Resignations.create(req.body);
     console.log(req.body);
 
-    // Fetch User Deatils who submitted the Resignation
+    // Fetch User Details who submitted the Resignation
     const user = await User.findById(resignation.user);
     if (!user) {
-      throw new Error("User not Found");
+      throw new Error("User not found");
     }
 
     // Fetch all admins or a specific admin
@@ -32,7 +44,7 @@ exports.createResignation = async (req, res) => {
 
       const notificationPayload = {
         title: "Resignation Request",
-        description: `${user.firstName} ${user.lastName} has applied for Resignation.`,
+        description: `${user.firstName} ${user.lastName} has applied for resignation.`,
       };
       console.log(notificationPayload);
 
@@ -97,7 +109,10 @@ exports.updateResignationStatus = async (req, res) => {
 
     // Prevent updating status if it is already canceled
     if (resignation.resignationStatus === "Canceled") {
-      throw new AppError(400, "Resignation is canceled, status can't be updated");
+      throw new AppError(
+        400,
+        "Resignation is canceled, status can't be updated"
+      );
     }
 
     // Check resignation status to ensure it can be updated
