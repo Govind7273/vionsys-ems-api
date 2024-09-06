@@ -95,6 +95,11 @@ exports.updateResignationStatus = async (req, res) => {
       throw new AppError(404, "Resignation not found");
     }
 
+    // Prevent updating status if it is already canceled
+    if (resignation.resignationStatus === "Canceled") {
+      throw new AppError(400, "Resignation is canceled, status can't be updated");
+    }
+
     // Check resignation status to ensure it can be updated
     if (status === "Approved") {
       if (resignation.resignationStatus === "Approved") {
