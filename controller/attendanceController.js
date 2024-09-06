@@ -265,12 +265,15 @@ exports.excelById = async (req, res, next) => {
 
 exports.adminUpdateAttendance = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { userId: user } = req.params;
     const { date, loginTime, logoutTime } = req.body;
-    console.log(date, loginTime, logoutTime)
 
+    // Validate input
     if (!date || (!loginTime && !logoutTime)) {
-      throw new AppError(400, "Date, and at least one of loginTime or logoutTime are required");
+      return res.status(400).json({
+        status: "fail",
+        message: "Date, and at least one of loginTime or logoutTime are required",
+      });
     }
 
     // Convert the provided date to the start and end of that day
@@ -281,23 +284,24 @@ exports.adminUpdateAttendance = async (req, res) => {
     endOfDay.setHours(23, 59, 59, 999);
 
     // Find the attendance record for the user on the specified date
-    const attendance = await Attendance.findOne({
-      user: userId,
+    let attendance = await Attendance.findOne({
+      user,
       date: {
         $gte: startOfDay,
         $lt: endOfDay,
       },
     });
 
+    // If no attendance record found, create a new one
     if (!attendance) {
-      const attendance = await Attendance.create(req.body);
-      res.status(200).json({
+      attendance = await Attendance.create({ ...req.body, user });
+      return res.status(201).json({
         status: "success",
+        message: "New attendance record created",
         data: {
           attendance,
         },
       });
-      // throw new AppError(404, "Attendance record not found for the specified date");
     }
 
     // Update loginTime and/or logoutTime
@@ -305,8 +309,6 @@ exports.adminUpdateAttendance = async (req, res) => {
     if (logoutTime) attendance.logoutTime = logoutTime;
 
     await attendance.save();
-
-    console.log(loginTime,logoutTime)
 
     res.status(200).json({
       status: "success",
@@ -317,9 +319,16 @@ exports.adminUpdateAttendance = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating attendance:", error);
-    handleError(res, error.statusCode || 500, error.message);
+    // Ensure that headers have not been sent before sending a response
+    if (!res.headersSent) {
+      res.status(error.statusCode || 500).json({
+        status: "error",
+        message: error.message || "Internal server error",
+      });
+    }
   }
 };
+
 
 // exports.excelUser = async (req, res, next) => {
 //   try {
