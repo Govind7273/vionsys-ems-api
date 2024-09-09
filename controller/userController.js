@@ -120,10 +120,13 @@ exports.updateUser = async (req, res) => {
     user.doj = req.body.doj;
     user.personalEmail = req.body.personalEmail;
     user.TempAddress = req.body.TempAddress;
+    user.role = req.body.role;
+
     await user.save();
     res.status(200).json({
       status: "success",
       data: {
+        
         message: "User successfully updated !",
         user,
       },

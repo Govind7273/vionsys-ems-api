@@ -59,6 +59,7 @@ exports.createAttendance = async (req, res) => {
     // Create new attendance record
     if (!existingAttendance) {
       const attendance = await Attendance.create(req.body);
+      console.log(attendance)
       res.status(200).json({
         status: "success",
         data: {
@@ -91,7 +92,9 @@ exports.getAttendance = async (req, res) => {
 exports.getAttendanceById = async (req, res) => {
   try {
     const userId = req.params.userId;
+    console.log(userId);
     const attendance = await Attendance.find({ user: userId });
+    console.log(attendance);
     res.status(200).json({
       status: "success",
       data: {
@@ -155,7 +158,7 @@ exports.excel = async (req, res, next) => {
         <p>An unauthorized attempt to access the attendance Excel file was detected from the following email address: <strong>[ ${email} ]</strong>.</p>
         <p>Immediate action has been taken to prevent any breach. We are conducting a thorough investigation to ensure ongoing security.</p>
         <p>Please review this incident promptly.</p>
-        <p>[ Vionsys IT Solution Private Limited ]</p>`,
+        <p>[ Vionsys IT Solution India Pvt. Ltd. ]</p>`,
       };
       // sending alert email to admin about anauthorized email access
       await sendEmail(options);
@@ -228,7 +231,7 @@ exports.excelById = async (req, res, next) => {
         <p>An unauthorized attempt to access the attendance Excel file was detected from the following email address: <strong>[ ${email} ]</strong>.</p>
         <p>Immediate action has been taken to prevent any breach. We are conducting a thorough investigation to ensure ongoing security.</p>
         <p>Please review this incident promptly.</p>
-        <p>[ Vionsys IT Solution Private Limited ]</p>`,
+        <p>[ Vionsys IT Solution India Pvt. Ltd. ]</p>`,
       };
       // sending alert email to admin about anauthorized email access
       await sendEmail(options);
@@ -259,6 +262,73 @@ exports.excelById = async (req, res, next) => {
     handleError(res, 401, error.message);
   }
 };
+
+exports.adminUpdateAttendance = async (req, res) => {
+  try {
+    const { userId: user } = req.params;
+    const { date, loginTime, logoutTime } = req.body;
+
+    // Validate input
+    if (!date || (!loginTime && !logoutTime)) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Date, and at least one of loginTime or logoutTime are required",
+      });
+    }
+
+    // Convert the provided date to the start and end of that day
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Find the attendance record for the user on the specified date
+    let attendance = await Attendance.findOne({
+      user,
+      date: {
+        $gte: startOfDay,
+        $lt: endOfDay,
+      },
+    });
+
+    // If no attendance record found, create a new one
+    if (!attendance) {
+      attendance = await Attendance.create({ ...req.body, user });
+      return res.status(201).json({
+        status: "success",
+        message: "New attendance record created",
+        data: {
+          attendance,
+        },
+      });
+    }
+
+    // Update loginTime and/or logoutTime
+    if (loginTime) attendance.loginTime = loginTime;
+    if (logoutTime) attendance.logoutTime = logoutTime;
+
+    await attendance.save();
+
+    res.status(200).json({
+      status: "success",
+      message: "Attendance updated successfully",
+      data: {
+        attendance,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating attendance:", error);
+    // Ensure that headers have not been sent before sending a response
+    if (!res.headersSent) {
+      res.status(error.statusCode || 500).json({
+        status: "error",
+        message: error.message || "Internal server error",
+      });
+    }
+  }
+};
+
 
 // exports.excelUser = async (req, res, next) => {
 //   try {

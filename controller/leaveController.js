@@ -3,6 +3,7 @@ const Leaves = require("../models/leavesmodel");
 const LeavesCount = require("../models/leaveCountModel");
 const getUserHistory = require("../utils/GetLeaveHistory");
 const AppError = require("../utils/appError");
+const { sendNotificationToOne } = require("../utils/sendNotificationToUser");
 
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
@@ -41,6 +42,7 @@ const upadateFieldFunction = (leaveType, leaveDays) => {
 exports.createLeaveRequest = async (req, res) => {
   try {
     const { userId, ...leaveData } = req.body;
+    // console.log(leaveData)
 
     if (!userId) {
       throw new Error("userId is required");
@@ -54,26 +56,44 @@ exports.createLeaveRequest = async (req, res) => {
     if (!leaveData?.leaveStart || !leaveData?.leaveEnd) {
       throw new Error("leaveStart and leaveEnd dates are required");
     }
-    const actualLeaveDays = Math.ceil(
-      (new Date(leaveData?.leaveEnd).getTime() -
-        new Date(leaveData?.leaveStart).getTime()) /
-        (1000 * 60 * 60 * 24) +
-        1
-    );
-    console.log("date difference - ", actualLeaveDays);
-    console.log("leave days -", leaveData?.leaveDays);
-    const applieforactual = leaveData?.leaveDays || 1;
-    // Check if provided leaveDays matches the actual duration
-    if (applieforactual != actualLeaveDays) {
-      throw new AppError(
-        400,
-        "Leave days provided do not match the actual duration"
-      );
+
+    const currentTime = new Date();
+    const currentHour = currentTime.getHours();
+
+    // Subtract one day from the current date
+    const oneDayBefore = new Date();
+    oneDayBefore.setDate(currentTime.getDate() - 1);
+
+    // Extract the day from the current date and leave start date
+    const currentDay = currentTime.getDate();
+
+    // Create a Date object for the leave start date and subtract one day
+    const leaveStartDate = new Date(leaveData.leaveStart);
+    leaveStartDate.setDate(leaveStartDate.getDate() - 1);
+    const leaveStartDay = leaveStartDate.getDate();
+
+    //  console.log("Current Day:", currentDay);
+    //  console.log("Leave Start Day (after subtracting one day):", leaveStartDay);
+    //  console.log("One Day Before:", oneDayBefore.getDate());
+
+    // Check if the leave start day is equal to the previous day
+    if (leaveStartDay === oneDayBefore.getDate()) {
+      if (!leaveData?.isHalfDay) {
+        // Full-day leave condition
+        if (currentHour >= 10) {
+          throw new Error("Full day leave must be applied before 10 AM");
+        }
+      } else {
+        // Half-day leave condition
+        if (currentHour > 14) {
+          throw new Error("Half day leave must be applied before 1 PM");
+        }
+      }
     }
 
     if (
-      new Date(leaveData?.leaveStart) <= new Date() ||
-      new Date(leaveData?.leaveEnd) <= new Date()
+      new Date(leaveData?.leaveStart) < new Date().setHours(0, 0, 0, 0) ||
+      new Date(leaveData?.leaveEnd) < new Date().setHours(0, 0, 0, 0)
     ) {
       throw new Error("Leave dates must be in the future");
     }
@@ -84,7 +104,7 @@ exports.createLeaveRequest = async (req, res) => {
 
     const alreadyAppliedForLeave = await Leaves.findOne({
       user: userId,
-      leaveStatus: "Pending" || "Approved",
+      leaveStatus: { $in: ["Pending", "Approved", "Expired"] },
       $or: [
         {
           leaveStart: {
@@ -107,14 +127,13 @@ exports.createLeaveRequest = async (req, res) => {
     if (alreadyAppliedForLeave) {
       throw new Error("Already applied for leave in this duration");
     }
+
     const updateFields = upadateFieldFunction(
       leaveData?.leaveType,
       leaveData?.leaveDays
     );
 
     if (Object.keys(updateFields).length > 0) {
-      // Check if available leaves are 0 or less for the specific leave type
-
       const leavesCount = await LeavesCount.findOneAndUpdate(
         { user: userId },
         { user: userId },
@@ -126,7 +145,6 @@ exports.createLeaveRequest = async (req, res) => {
         .split(" ")
         .join("");
 
-      // Check if leave count is zero or less
       if (leaveTypeField !== "unpaidleave") {
         if (
           leavesCount[leaveTypeField] === 0 ||
@@ -137,13 +155,33 @@ exports.createLeaveRequest = async (req, res) => {
           );
         }
       }
+
       const leave = await Leaves.create({ user: userId, ...leaveData });
       if (!leave) {
         throw new Error("Error while sending leave request");
       }
-      // Only update LeavesCount if updateFields is not empty and leave count is positive
+
       await LeavesCount.findOneAndUpdate({ user: userId }, updateFields, {
         upsert: true,
+      });
+
+      // Fetch all admins or a specific admin
+      const admins = await User.find({ role: "admin" }); // Assuming 'role' is a field that specifies user roles
+      if (admins.length === 0) throw new Error("No admin found!");
+
+      // Send notification to all admins
+      admins.forEach(async (admin) => {
+        const adminNotificationToken = admin?.notificationToken || "";
+
+        const notificationPayload = {
+          title: "Leave Request Received",
+          description: `${userExist.firstName} ${userExist.lastName} has applied for ${leave.leaveType}.`,
+        };
+
+        await sendNotificationToOne(
+          adminNotificationToken,
+          notificationPayload
+        );
       });
     }
 
@@ -156,83 +194,83 @@ exports.createLeaveRequest = async (req, res) => {
 
 exports.cancelLeaveRequest = async (req, res) => {
   try {
-    const { user, cancleReason } = req.body;
+    const { user, cancelReason } = req.body;
     const leaveId = req.params.leaveId;
 
     const theUserLeave = await Leaves.findOne({ _id: leaveId });
-    console.log(theUserLeave.leaveStart, theUserLeave.leaveEnd);
+    if (!theUserLeave) {
+      throw new Error("Leave request not found.");
+    }
 
     const currentDate = new Date();
     const leaveStartDate = new Date(theUserLeave.leaveStart);
     const leaveEndDate = new Date(theUserLeave.leaveEnd);
 
-    if (currentDate > leaveStartDate && currentDate < leaveEndDate) {
-      throw new Error("Leave has already started.");
-    }
-    if (currentDate >= leaveEndDate) {
-      throw new Error("Leave has already ended.");
+    // Reset hours, minutes, seconds, and milliseconds for date comparison
+    currentDate.setHours(0, 0, 0, 0);
+    leaveStartDate.setHours(0, 0, 0, 0);
+
+    // Check if leave can be cancelled based on the date and time
+    const currentHour = new Date().getHours();
+
+    if (currentDate > leaveStartDate) {
+      throw new Error("Leave has already started and cannot be cancelled.");
     }
 
-    const leaveTypeField = theUserLeave?.leaveType
-      .toLowerCase()
-      .split(" ")
-      .join("");
+    if (currentDate.toDateString() === leaveStartDate.toDateString() && currentHour >= 14) {
+      throw new Error("Leave on the current date can only be cancelled before 2 PM.");
+    }
+
+    // Only pending or approved leaves can be cancelled
+    if (theUserLeave.leaveStatus !== "Pending" && theUserLeave.leaveStatus !== "Approved") {
+      throw new Error("Only pending or approved leave requests can be cancelled.");
+    }
+
+    const leaveTypeField = theUserLeave.leaveType.toLowerCase().split(" ").join("");
 
     let updateremove = {};
 
-    switch (theUserLeave?.leaveStatus) {
-      case "Pending":
-        updateremove = {
-          $inc: { pendingLeaves: -1, cancelledLeaves: 1 },
-        };
-        {
-          leaveTypeField !== "unpaidleave"
-            ? (updateremove.$inc[leaveTypeField] = theUserLeave?.leaveDays)
-            : (updateremove.$inc[leaveTypeField] = -theUserLeave?.leaveDays);
-        }
-        break;
-      case "Approved":
-        updateremove = {
-          $inc: { approvedLeaves: -1, cancelledLeaves: 1 },
-        };
-        {
-          leaveTypeField !== "unpaidleave"
-            ? (updateremove.$inc[leaveTypeField] = theUserLeave?.leaveDays)
-            : (updateremove.$inc[leaveTypeField] = -theUserLeave?.leaveDays);
-        }
-        break;
-      default:
-        break;
+    if (theUserLeave.leaveStatus === "Pending") {
+      updateremove = {
+        $inc: { pendingLeaves: -1, cancelledLeaves: 1 }
+      };
+    } else if (theUserLeave.leaveStatus === "Approved") {
+      updateremove = {
+        $inc: { approvedLeaves: -1, cancelledLeaves: 1 }
+      };
     }
 
-    if (theUserLeave?.leaveStatus === "Rejected") {
-      throw new Error("can't cancle request , is already rejected");
-    }
-    if (theUserLeave?.leaveStatus === "Cancelled") {
-      throw new Error("can't Cancel request , is already Cancelled");
-    }
-    if (theUserLeave?.leaveStatus === "Expired") {
-      throw new Error("can't Cancel request , is already Expired");
+    // Adjust leave type count if necessary
+    if (leaveTypeField !== "unpaidleave") {
+      updateremove.$inc[leaveTypeField] = theUserLeave.leaveDays;
+    } else {
+      updateremove.$inc[leaveTypeField] = -theUserLeave.leaveDays;
     }
 
+    // Update the leave count
     const updatecount = await LeavesCount.updateOne({ user }, updateremove);
+
+    // Mark the leave as cancelled
     const Leavesupdate = await Leaves.updateOne(
       { _id: leaveId },
       {
-        leaveCancle: true,
-        cancleReason,
+        leaveCancel: true,
+        cancelReason,
         leaveStatus: "Cancelled",
-        cancleDate: new Date(),
+        cancelDate: new Date(),
       }
     );
 
-    res
-      .status(200)
-      .json({ message: "deletion successful", updatecount, Leavesupdate });
+    res.status(200).json({
+      message: "Cancellation successful",
+      updatecount,
+      Leavesupdate,
+    });
   } catch (error) {
     handleError(res, 400, error.message);
   }
 };
+
 
 exports.getleavesHistoryById = async (req, res) => {
   try {
@@ -249,13 +287,53 @@ exports.getleavesHistoryById = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Find pending leaves that have expired
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0); // Reset time to the start of the day
+
+    // Check if the current date and time is after 2 PM today
+    const expirationTime = new Date();
+    expirationTime.setHours(14, 0, 0, 0); // Set to 2 PM today
+
+    // Handle current date leaves
+    const useCurrentDateLeaves = await Leaves.find({
+      user: userId,
+      leaveStatus: "Pending",
+      leaveStart: { $gte: currentDate, $lt: expirationTime },
+    });
+
+    // Loop through current date leaves and update their status if needed
+    for (const leave of useCurrentDateLeaves) {
+      if (new Date() >= expirationTime) {
+        leave.leaveStatus = "Expired";
+
+        // Update the LeavesCount document
+        const leaveTypeField = leave.leaveType.toLowerCase().split(" ").join("");
+        const expiredDays = leave.leaveDays;
+
+        if (leaveTypeField === "unpaidleave") {
+          await LeavesCount.findOneAndUpdate(
+            { user: userId },
+            { $inc: { [leaveTypeField]: -expiredDays, expiredLeaves: 1, pendingLeaves: -1 } }
+          );
+        } else {
+          await LeavesCount.findOneAndUpdate(
+            { user: userId },
+            { $inc: { [leaveTypeField]: expiredDays, expiredLeaves: 1, pendingLeaves: -1 } }
+          );
+        }
+      } else {
+        leave.leaveStatus = "Pending"; // Keep as pending if before 2 PM
+      }
+      await leave.save();
+    }
+
+    // Handle expired leaves that are not on the current date
     const useExpired = await Leaves.find({
       user: userId,
       leaveStatus: "Pending",
       $or: [
-        { leaveStart: { $lt: new Date() } },
-        { leaveEnd: { $lt: new Date() } },
+        { leaveStart: { $lt: currentDate } },
+        { leaveEnd: { $lt: currentDate } },
       ],
     });
 
@@ -264,39 +342,31 @@ exports.getleavesHistoryById = async (req, res) => {
       const leaveTypeField = leave.leaveType.toLowerCase().split(" ").join("");
       const expiredDays = leave.leaveDays;
 
-      // Increment the leave count in LeavesCount document based on leave type and days
       if (leaveTypeField === "unpaidleave") {
         await LeavesCount.findOneAndUpdate(
           { user: userId },
-          { $inc: { [leaveTypeField]: -expiredDays } }
+          { $inc: { [leaveTypeField]: -expiredDays, expiredLeaves: 1, pendingLeaves: -1 } }
         );
       } else {
         await LeavesCount.findOneAndUpdate(
           { user: userId },
-          { $inc: { [leaveTypeField]: expiredDays } }
+          { $inc: { [leaveTypeField]: expiredDays, expiredLeaves: 1, pendingLeaves: -1 } }
         );
       }
     }
 
-    // Mark expired leaves as "Expired" in the database
-    const expiredleaves = await Leaves.updateMany(
-      {
-        user: userId,
-        leaveStatus: "Pending",
-        $or: [
-          { leaveStart: { $lt: new Date() } },
-          { leaveEnd: { $lt: new Date() } },
-        ],
-      },
-      { $set: { leaveStatus: "Expired" } }
-    );
-
-    // Increment the expiredLeaves count in LeavesCount document
-    const expiredCount = expiredleaves?.modifiedCount;
-    if (expiredCount) {
-      await LeavesCount.findOneAndUpdate(
-        { user: userId },
-        { $inc: { pendingLeaves: -1, expiredLeaves: expiredCount } }
+    // Mark expired leaves as "Expired" in the database if the current time is past 2 PM
+    if (currentDate >= expirationTime) {
+      await Leaves.updateMany(
+        {
+          user: userId,
+          leaveStatus: "Pending",
+          $or: [
+            { leaveStart: { $lt: currentDate } },
+            { leaveEnd: { $lt: currentDate } },
+          ],
+        },
+        { $set: { leaveStatus: "Expired" } }
       );
     }
 
@@ -304,27 +374,37 @@ exports.getleavesHistoryById = async (req, res) => {
     const userAllLeaves = await getUserHistory(userId);
 
     // Send the leave history in the response along with a success message
-    res
-      .status(200)
-      .json({ message: "Leave history retrieved successfully", userAllLeaves });
+    res.status(200).json({
+      message: "Leave history retrieved successfully",
+      userAllLeaves,
+    });
   } catch (error) {
-    console.log(error);
     handleError(res, 400, error.message);
   }
 };
 
+
 exports.getleaveHistory = async (req, res) => {
   try {
-    await Leaves.updateMany(
-      {
-        leaveStatus: "Pending",
-        $or: [
-          { leaveStart: { $lt: new Date() } },
-          { leaveEnd: { $lt: new Date() } },
-        ],
-      },
-      { $set: { leaveStatus: "Expired" } }
-    );
+    const currentDate = new Date();
+
+    // Check if the current date and time is after 2 PM today
+    const expirationTime = new Date();
+    expirationTime.setHours(14, 0, 0, 0); // Set to 2 PM today
+
+    // Mark leaves as "Expired" if the current time is past 2 PM
+    if (currentDate >= expirationTime) {
+      await Leaves.updateMany(
+        {
+          leaveStatus: "Pending",
+          $or: [
+            { leaveStart: { $lt: currentDate } },
+            { leaveEnd: { $lt: currentDate } },
+          ],
+        },
+        { $set: { leaveStatus: "Expired" } }
+      );
+    }
 
     const AllLeaves = await getUserHistory();
     res.status(200).json({ message: "ok", AllLeaves });
@@ -335,10 +415,11 @@ exports.getleaveHistory = async (req, res) => {
 
 exports.leaveApprovedByAdmin = async (req, res) => {
   try {
-    const { leaveId, userId, note } = req.body;
+    const { leaveId, userId, note, adminId } = req.body; // Include adminId in the request body
 
-    if (!leaveId || !userId || !note) {
-      throw new AppError(400, "all fields are required");
+    if (!leaveId || !userId || !note || !adminId) {
+      // Check for adminId as well
+      throw new AppError(400, "All fields are required");
     }
 
     const leavedata = await Leaves.findOne({ _id: leaveId });
@@ -351,77 +432,151 @@ exports.leaveApprovedByAdmin = async (req, res) => {
     }
 
     if (leavedata.leaveStatus === "Cancelled") {
-      throw new AppError(400, "leave is cancelled by employee! can't update");
+      throw new AppError(400, "Leave is cancelled by employee! Can't update");
     }
+
     if (leavedata.leaveStatus === "Rejected") {
-      throw new AppError(400, "Leave is rejected, can't Approved");
+      throw new AppError(400, "Leave is rejected, can't be approved");
     }
+
     if (leavedata.leaveStatus === "Expired") {
-      throw new AppError(400, "Leave is Expired	, can't Approved");
+      throw new AppError(400, "Leave is expired, can't be approved");
     }
-    const approvedleave = await Leaves.findOneAndUpdate(
+
+    // Approve the leave
+    const approvedLeave = await Leaves.findOneAndUpdate(
       { _id: leaveId, user: userId },
       { $set: { leaveStatus: "Approved", noteByAdmin: note } },
       { new: true }
     );
 
+    // Update the leave counts
     const leavesCountUpdate = await LeavesCount.findOneAndUpdate(
       { user: userId },
       { $inc: { pendingLeaves: -1, approvedLeaves: 1 } }
     );
 
+    // Fetch the user to get their notification token
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    // Fetch the admin to get their name for the notification
+    const admin = await User.findById(adminId);
+    if (!admin) {
+      throw new AppError(404, "Admin not found");
+    }
+
+    const userNotificationToken = user.notificationToken || "";
+
+    // Create a notification payload
+    const notificationPayload = {
+      title: "Leave Approved",
+      description: `Your leave request has been approved by ${admin.firstName} ${admin.lastName}.`,
+    };
+    // Send notification to the user
+    await sendNotificationToOne(userNotificationToken, notificationPayload);
+
     res.status(200).json({
       message: "Leave approved",
-      approvedleave,
+      approvedLeave,
       leavesCountUpdate,
     });
   } catch (error) {
-    handleError(res, error.statusCode, error.message);
+    console.error("Error:", error);
+    handleError(res, error.statusCode || 400, error.message);
   }
 };
 
 exports.leaveRejectedByAdmin = async (req, res) => {
   try {
-    const { leaveId, userId, note } = req.body;
+    const { leaveId, userId, note, adminId } = req.body;
 
-    if (!leaveId || !userId || !note) {
-      throw new AppError(400, "leaveId, userId, and note are required");
+    if (!leaveId || !userId || !note || !adminId) {
+      // Check for adminId as well
+      throw new AppError(
+        400,
+        "leaveId, userId, note, and adminId are required"
+      );
     }
 
     const leavedata = await Leaves.findOne({ _id: leaveId });
     if (!leavedata) {
       throw new AppError(404, "Leave not found");
     }
-    if (leavedata.leaveStatus === "Cancelled") {
-      throw new AppError(400, "leave is cancelled by employee! can't update");
-    }
-    if (leavedata.leaveStatus === "Rejected") {
-      throw new AppError(400, "Leave already Rejected");
-    }
-    if (leavedata.leaveStatus === "Approved") {
-      throw new AppError(400, "Leave is Approved , can't rejected");
-    }
-    if (leavedata.leaveStatus === "Expired") {
-      throw new AppError(400, "Leave is Expired	 , can't rejected");
+
+    if (
+      ["Cancelled", "Rejected", "Approved", "Expired"].includes(
+        leavedata.leaveStatus
+      )
+    ) {
+      throw new AppError(
+        400,
+        `Leave is already ${leavedata.leaveStatus}, cannot be rejected.`
+      );
     }
 
+    const leaveTypeField = leavedata.leaveType
+      .toLowerCase()
+      .split(" ")
+      .join("");
+    const leaveDays = leavedata.leaveDays;
+
+    // Update the leave status to 'Rejected' and save the admin note
     const approvedleave = await Leaves.findOneAndUpdate(
       { _id: leaveId, user: userId },
       { $set: { leaveStatus: "Rejected", noteByAdmin: note } },
       { new: true }
     );
 
+    // Prepare the update for leave counts, restoring the leave days
+    let leaveCountUpdate = {
+      $inc: { pendingLeaves: -1, rejectedLeaves: 1 },
+    };
+
+    if (leaveTypeField !== "unpaidleave") {
+      leaveCountUpdate.$inc[leaveTypeField] = leaveDays;
+    } else {
+      leaveCountUpdate.$inc[leaveTypeField] = -leaveDays;
+    }
+
+    // Apply the update to the user's leave counts
     const leavesCountUpdate = await LeavesCount.findOneAndUpdate(
-      { user: userId, pendingLeaves: { $gt: 0 } },
-      { $inc: { pendingLeaves: -1, rejectedLeaves: 1 } }
+      { user: userId },
+      leaveCountUpdate,
+      { new: true }
     );
 
+    // Fetch the user to get their notification token
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    // Fetch the admin to get their name for the notification
+    const admin = await User.findById(adminId);
+    if (!admin) {
+      throw new AppError(404, "Admin not found");
+    }
+
+    const userNotificationToken = user.notificationToken || "";
+
+    // Create a notification payload
+    const notificationPayload = {
+      title: "Leave Rejected",
+      description: `Your leave request has been rejected by ${admin.firstName} ${admin.lastName}.`,
+    };
+
+    // Send notification to the user
+    await sendNotificationToOne(userNotificationToken, notificationPayload);
+
     res.status(200).json({
-      message: "Leave Rejected",
+      message: "Leave rejected successfully",
       approvedleave,
       leavesCountUpdate,
     });
   } catch (error) {
-    handleError(res, error.statusCode, error.message);
+    handleError(res, error.statusCode || 400, error.message);
   }
 };
