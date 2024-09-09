@@ -68,13 +68,13 @@ exports.createLeaveRequest = async (req, res) => {
     const currentDay = currentTime.getDate();
 
     // Create a Date object for the leave start date and subtract one day
-    const leaveStartDate = new Date(leaveData.leaveStart);
-    leaveStartDate.setDate(leaveStartDate.getDate() - 1);
-    const leaveStartDay = leaveStartDate.getDate();
+    // const leaveStartDate = new Date(leaveData.leaveStart);
+    // leaveStartDate.setDate(leaveStartDate.getDate() - 1);
+    // const leaveStartDay = leaveStartDate.getDate();
 
-    const leaveEndDate = new Date(leaveData.leaveEnd);
-    leaveEndDate.setDate(leaveEndDate.getDate() - 1);
-    const leaveEndDay = leaveEndDate.getDate();
+    // const leaveEndDate = new Date(leaveData.leaveEnd);
+    // leaveEndDate.setDate(leaveEndDate.getDate() - 1);
+    // const leaveEndDay = leaveEndDate.getDate();
 
     //  console.log("Current Day:", currentDay);
     //  console.log("Leave Start Day (after subtracting one day):", leaveStartDay);
@@ -97,14 +97,21 @@ exports.createLeaveRequest = async (req, res) => {
     //   }
     // }
 
-    if (
-      new Date(leaveData?.leaveStart).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0) ||
-      new Date(leaveData?.leaveEnd).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0)
-    ) {
+    const currentDate = new Date();
+    const currentDateMidnight = new Date(currentDate.setHours(0, 0, 0, 0));
+
+    const leaveStartDate = new Date(leaveData.leaveStart);
+    const leaveEndDate = new Date(leaveData.leaveEnd);
+
+    // Normalize leave dates to midnight
+    leaveStartDate.setHours(0, 0, 0, 0);
+    leaveEndDate.setHours(0, 0, 0, 0);
+
+    if (leaveStartDate < currentDateMidnight || leaveEndDate < currentDateMidnight) {
       throw new Error("Leave dates must be in the future");
     }
 
-    if (new Date(leaveData?.leaveStart) > new Date(leaveData?.leaveEnd)) {
+    if (leaveStartDate > leaveEndDate) {
       throw new Error("StartDate must be before EndDate");
     }
 
