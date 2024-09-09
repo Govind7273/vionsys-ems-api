@@ -50,7 +50,6 @@ exports.signup = async (req, res, next) => {
     const url = await uploadOnCloudinary(imagepath);
     const newUser = await User.create({
       ...req.body,
-      role: undefined,
       profile: url,
     });
 
@@ -236,7 +235,13 @@ exports.sendMailVerification = async (req, res) => {
     upatetoken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
     const resetUrl = `${HOST}/Verifymail/${resetToken}`;
-    const message = `Verify your mail with ${resetUrl}. If you didn't requested for this verifacation, please ignore this email`;
+    const message = `Dear ${user.firstName},<br><br>
+We have received a request to verify your email address. If you initiated this request, please click the link below to verify your email:<br><br>
+<a href="${resetUrl}">Verify Your Email</a><br><br>
+If you did not request for this verifacation, you can safely ignore this email.<br><br>
+Thank you for your attention,<br>
+Vionsys IT Solutions India Pvt. Ltd Support Team`;
+
     user.verificationToken = upatetoken;
     user.verificationExpires = Date.now() + 10 * 60 * 1000;
     await user.save({ validateBeforeSave: false });

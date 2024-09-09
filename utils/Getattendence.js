@@ -1,16 +1,16 @@
 const Attendance = require("../models/attendanceModel");
 
-const GetAttendance = async (startDate, endDate) => {
+const GetAttendance = async () => {
   try {
-    // Convert start and end dates to UTC Date objects
-    const startDateObject = startDate
-      ? new Date(`${startDate}T00:00:00.000Z`)
-      : new Date(0); // If startDate is not provided, default to the beginning of time
-    const endDateObject = endDate
-      ? new Date(`${endDate}T23:59:59.999Z`)
-      : new Date(); // If endDate is not provided, default to current date
+    // Get the current date
+    const currentDate = new Date();
+    
+    // Create start and end of the day in UTC
+    const startDateObject = new Date(`${currentDate.toISOString().split('T')[0]}T00:00:00.000Z`);
+    // console.log(startDateObject)
+    const endDateObject = new Date(`${currentDate.toISOString().split('T')[0]}T23:59:59.999Z`);
 
-    // Using aggregate to group attendance by user and filter by date range
+    // Using aggregate to group attendance by user and filter by current date
     const attendance = await Attendance.aggregate([
       {
         $match: {
@@ -42,7 +42,7 @@ const GetAttendance = async (startDate, endDate) => {
     return attendance; // Returning aggregated attendance data
   } catch (error) {
     // Throwing error if any
-    throw new Error("Error in fetching attendence");
+    throw new Error("Error in fetching attendance");
   }
 };
 
