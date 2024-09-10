@@ -98,8 +98,8 @@ exports.createLeaveRequest = async (req, res) => {
     // }
     console.log(leaveStartDay, leaveEndDay, currentDay)
     if (
-      new Date(leaveStartDay) < new Date(currentDay) ||
-      new Date(leaveEndDay) < new Date(currentDay)
+    leaveStartDay < currentDay ||
+    leaveEndDay < currentDay
     ) {
       
       throw new Error("Leave dates must be in the future");
