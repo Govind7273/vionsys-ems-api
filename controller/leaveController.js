@@ -56,51 +56,111 @@ exports.createLeaveRequest = async (req, res) => {
       throw new Error("leaveStart and leaveEnd dates are required");
     }
 
-    // Use UTC time for all date and time calculations
     const currentTime = new Date();
-    const currentHourUTC = currentTime.getUTCHours();
+    const currentHour = currentTime.getHours();
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
 
-    // Subtract one day from the current UTC date
-    const oneDayBefore = new Date();
-    oneDayBefore.setUTCDate(currentTime.getUTCDate() - 1);
+    const leaveStartDate = new Date(leaveData.leaveStart);
+    leaveStartDate.setHours(0, 0, 0, 0);
 
-    const currentDayUTC = currentTime.getUTCDate() - 1;
+    const leaveEndDate = new Date(leaveData.leaveEnd);
+    leaveEndDate.setHours(0, 0, 0, 0);
 
-    const leaveStartDateUTC = new Date(leaveData.leaveStart);
-    leaveStartDateUTC.setUTCDate(leaveStartDateUTC.getUTCDate() );
-    const leaveStartDayUTC = leaveStartDateUTC.getUTCDate();
-
-    const leaveEndDateUTC = new Date(leaveData.leaveEnd);
-    leaveEndDateUTC.setUTCDate(leaveEndDateUTC.getUTCDate() );
-    const leaveEndDayUTC = leaveEndDateUTC.getUTCDate();
-    
-    console.log(leaveStartDayUTC, leaveEndDayUTC, currentDayUTC)
-    if (
-      leaveStartDayUTC < currentDayUTC ||
-      leaveEndDayUTC < currentDayUTC
-    ) {
+    // Check if leave dates are in the future
+    console.log(leaveStartDate, leaveEndDate, currentDate)
+    if (leaveStartDate < currentDate || leaveEndDate < currentDate) {
       throw new Error("Leave dates must be in the future");
     }
 
-    if (new Date(leaveData?.leaveStart) > new Date(leaveData?.leaveEnd)) {
+    if (leaveStartDate > leaveEndDate) {
       throw new Error("StartDate must be before EndDate");
     }
 
-    // Full-day leave check for UTC time
-    // if (leaveStartDayUTC === currentDayUTC) {
-    //   if (!leaveData?.isHalfDay && currentHourUTC >= 10) {
-    //     throw new Error("Full day leave must be applied before 10 AM UTC");
-    //   }
+    const alreadyAppliedForLeave = await Leaves.findOne({
+      user: userId,
+      leaveStatus: { $in: ["Pending", "Approved", "Expired"] },
+      $or: [
+        {
+          leaveStart: {
+            $gte: leaveData?.leaveStart,
+            $lte: leaveData?.leaveEnd,
+          },
+        },
+        {
+          leaveEnd: { $gte: leaveData?.leaveStart, $lte: leaveData?.leaveEnd },
+        },
+        {
+          $and: [
+            { leaveStart: { $lte: leaveData?.leaveStart } },
+            { leaveEnd: { $gte: leaveData?.leaveEnd } },
+          ],
+        },
+      ],
+    });
 
-    //   if (leaveData?.isHalfDay === true && currentHourUTC > 14) {
-    //     throw new Error("Half day leave must be applied before 2 PM UTC");
-    //   }
-    // }
+    if (alreadyAppliedForLeave) {
+      throw new Error("Already applied for leave in this duration");
+    }
 
-    // Continue with your existing leave validation and save logic...
+    const updateFields = upadateFieldFunction(
+      leaveData?.leaveType,
+      leaveData?.leaveDays
+    );
+
+    if (Object.keys(updateFields).length > 0) {
+      const leavesCount = await LeavesCount.findOneAndUpdate(
+        { user: userId },
+        { user: userId },
+        { upsert: true, new: true }
+      );
+
+      const leaveTypeField = leaveData?.leaveType
+        .toLowerCase()
+        .split(" ")
+        .join("");
+
+      if (leaveTypeField !== "unpaidleave") {
+        if (
+          leavesCount[leaveTypeField] === 0 ||
+          leaveData?.leaveDays > leavesCount[leaveTypeField]
+        ) {
+          throw new Error(
+            `Cannot apply for ${leaveData?.leaveType}. Insufficient leave balance.`
+          );
+        }
+      }
+
+      const leave = await Leaves.create({ user: userId, ...leaveData });
+      if (!leave) {
+        throw new Error("Error while sending leave request");
+      }
+
+      await LeavesCount.findOneAndUpdate({ user: userId }, updateFields, {
+        upsert: true,
+      });
+
+      const admins = await User.find({ role: "admin" });
+      if (admins.length === 0) throw new Error("No admin found!");
+
+      admins.forEach(async (admin) => {
+        const adminNotificationToken = admin?.notificationToken || "";
+
+        const notificationPayload = {
+          title: "Leave Request Received",
+          description: `${userExist.firstName} ${userExist.lastName} has applied for ${leave.leaveType}.`,
+        };
+
+        await sendNotificationToOne(
+          adminNotificationToken,
+          notificationPayload
+        );
+      });
+    }
 
     res.status(201).json({ message: "Leave request is submitted" });
   } catch (error) {
+    console.error("Error:", error);
     handleError(res, 400, error.message);
   }
 };
