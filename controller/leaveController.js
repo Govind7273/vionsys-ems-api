@@ -69,11 +69,11 @@ exports.createLeaveRequest = async (req, res) => {
 
     // Create a Date object for the leave start date and subtract one day
     const leaveStartDate = new Date(leaveData.leaveStart);
-    leaveStartDate.setDate(leaveStartDate.getDate() + 1);
+    leaveStartDate.setDate(leaveStartDate.getDate() - 1);
     const leaveStartDay = leaveStartDate.getDate();
 
     const leaveEndDate = new Date(leaveData.leaveEnd);
-    leaveEndDate.setDate(leaveEndDate.getDate() + 1);
+    leaveEndDate.setDate(leaveEndDate.getDate() - 1);
     const leaveEndDay = leaveEndDate.getDate();
 
     //  console.log("Current Day:", currentDay);
@@ -96,12 +96,12 @@ exports.createLeaveRequest = async (req, res) => {
     //   }
     //   }
     // }
-
+    console.log(leaveStartDay, leaveEndDay, currentDay)
     if (
-      new Date(leaveData?.leaveStart) < new Date(currentDay) ||
-      new Date(leaveData?.leaveEnd) < new Date(currentDay)
+      new Date(leaveStartDay) < new Date(currentDay) ||
+      new Date(leaveEndDay) < new Date(currentDay)
     ) {
-      console.log(leaveData?.leaveStart, leaveData?.leaveEnd, currentDay)
+      
       throw new Error("Leave dates must be in the future");
     }
 
