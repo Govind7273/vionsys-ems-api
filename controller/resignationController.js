@@ -21,12 +21,11 @@ exports.createResignation = async (req, res) => {
     });
 
     if (existingResignation) {
-        throw new AppError(400, "You have already applied for resignation");
+      throw new AppError(400, "You have already applied for resignation");
     }
 
     // Create a new resignation
     const resignation = await Resignations.create(req.body);
-    console.log(req.body);
 
     // Fetch User Details who submitted the Resignation
     const user = await User.findById(resignation.user);
@@ -94,15 +93,30 @@ exports.getAllResignation = async (req, res) => {
 // Function to update resignation status and note by admin
 exports.updateResignationStatus = async (req, res) => {
   try {
-    const { resignationId, userId, status, note, adminId } = req.body; // Include adminId in the request body
-    if (!resignationId || !userId || !status || !note || !adminId) {
-      throw new AppError(400, "All fields are required, including adminId");
+    const { resignationId, userId, status, note, adminId, noticePeriodDays } =
+      req.body;
+      console.log(req.body)
+
+    // Check if all required fields are present
+    if (
+      !resignationId ||
+      !userId ||
+      !status ||
+      !note ||
+      !adminId ||
+      !noticePeriodDays
+    ) {
+      throw new AppError(
+        400,
+        "All fields are required, including adminId and noticePeriodDays if approving"
+      );
     }
 
     const resignation = await Resignations.findOne({
       _id: resignationId,
       user: userId,
     });
+
     if (!resignation) {
       throw new AppError(404, "Resignation not found");
     }
@@ -124,21 +138,18 @@ exports.updateResignationStatus = async (req, res) => {
         throw new AppError(400, "Resignation is rejected, can't approve");
       }
 
-      // Calculate exitDate if applicable
-      let exitDate = null;
-      if (
-        resignation.resignationType === "Resign with Notice period" &&
-        resignation.noticePeriodDays
-      ) {
-        const approvedDate = new Date();
-        exitDate = new Date(approvedDate);
-        exitDate.setDate(approvedDate.getDate() + resignation.noticePeriodDays);
-      }
-
+      // Calculate last working day using the admin approval date
+      const adminApprovedDate = new Date(); // The date when admin approves the resignation
+      const lastWorkingDay = new Date(adminApprovedDate);
+      lastWorkingDay.setDate(
+        adminApprovedDate.getDate() + parseInt(noticePeriodDays)
+      ); // Calculate last working day
+      // Update resignation details
       resignation.resignationStatus = "Approved";
-      resignation.adminApprovedDate = Date.now();
+      resignation.adminApprovedDate = adminApprovedDate;
       resignation.noteByAdmin = note;
-      resignation.exitDate = exitDate;
+      resignation.exitDate = lastWorkingDay; // Store the last working day based on admin approval date
+      resignation.noticePeriodDays = noticePeriodDays; // Store the notice period days entered by the admin
     } else if (status === "Rejected") {
       if (resignation.resignationStatus === "Rejected") {
         throw new AppError(400, "Resignation already rejected");
