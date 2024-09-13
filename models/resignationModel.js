@@ -10,36 +10,21 @@ const resignationSchema = mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-  resignationType: {
-    type: String,
-    required: [true, "Please Select the Resignation Type"],
-    enum: ["Resign with Notice period", "Resign without Notice period"],
-    default: "Resign with Notice period",
-    validate: {
-      validator: function (value) {
-        return [
-          "Resign with Notice period",
-          "Resign without Notice period",
-        ].includes(value);
-      },
-      message: (props) => `${props.value} is not a valid resignation type!`,
-    },
-  },
   noticePeriodDays: {
     type: Number,
-    default: 1,
+  },
+  defaultNoticePeriod: {
+    type: Number,
+    default: 60,
+  
   },
   resignationReason: {
     type: String,
-    required: [true, "Please provide the Resignation Reason"],
+    required: [true, "Please provide the resignation reason"],
   },
   resignationCancle: {
     type: Boolean,
     default: false,
-  },
-  noteByAdmin: {
-    type: String,
-    defaultL: "Wait Please",
   },
   noteByAdmin: {
     type: String,
@@ -55,12 +40,6 @@ const resignationSchema = mongoose.Schema({
     type: String,
     enum: ["Approved", "Rejected", "Pending", "Canceled"],
     default: "Pending",
-    validate: {
-      validator: function (value) {
-        return ["Approved", "Rejected", "Pending", "Canceled"].includes(value);
-      },
-      message: (props) => `${props.value} is not a valid status!`,
-    },
   },
   cancleResignationReason: {
     type: String,
