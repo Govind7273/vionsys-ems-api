@@ -42,6 +42,7 @@ const upadateFieldFunction = (leaveType, leaveDays) => {
 exports.createLeaveRequest = async (req, res) => {
   try {
     const { userId, ...leaveData } = req.body;
+    // console.log(leaveData)
 
     if (!userId) {
       throw new Error("userId is required");
@@ -58,22 +59,53 @@ exports.createLeaveRequest = async (req, res) => {
 
     const currentTime = new Date();
     const currentHour = currentTime.getHours();
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
 
+    // Subtract one day from the current date
+    const oneDayBefore = new Date();
+    oneDayBefore.setDate(currentTime.getDate() - 1);
+
+    // Extract the day from the current date and leave start date
+    const currentDay = (currentTime.getDate() - 1);
+
+    // Create a Date object for the leave start date and subtract one day
     const leaveStartDate = new Date(leaveData.leaveStart);
-    leaveStartDate.setHours(0, 0, 0, 0);
+    leaveStartDate.setDate(leaveStartDate.getDate() - 1);
+    const leaveStartDay = leaveStartDate.getDate();
 
     const leaveEndDate = new Date(leaveData.leaveEnd);
-    leaveEndDate.setHours(0, 0, 0, 0);
+    leaveEndDate.setDate(leaveEndDate.getDate() - 1);
+    const leaveEndDay = leaveEndDate.getDate();
 
-    // Check if leave dates are in the future
-    console.log(leaveStartDate, leaveEndDate, currentDate)
-    if (leaveStartDate < currentDate || leaveEndDate < currentDate) {
+    //  console.log("Current Day:", currentDay);
+    //  console.log("Leave Start Day (after subtracting one day):", leaveStartDay);
+    //  console.log("One Day Before:", oneDayBefore.getDate());
+
+    // Check if the leave start day is equal to the previous day
+    if (leaveStartDay === oneDayBefore.getDate()) {
+      if (!leaveData?.isHalfDay) {
+        // Full-day leave condition
+        if (currentHour >= 10) {
+          throw new Error("Full day leave must be applied before 10 AM");
+        }
+      } else {
+        // Half-day leave condition
+        if(leaveData?.isHalfDay === true){
+        if (currentHour > 14) {
+          throw new Error("Half day leave must be applied before 1 PM");
+        }
+      }
+      }
+    }
+    // console.log(leaveStartDay, leaveEndDay, currentDay)
+    if (
+    leaveStartDay < currentDay ||
+    leaveEndDay < currentDay
+    ) {
+      
       throw new Error("Leave dates must be in the future");
     }
 
-    if (leaveStartDate > leaveEndDate) {
+    if (new Date(leaveData?.leaveStart) > new Date(leaveData?.leaveEnd)) {
       throw new Error("StartDate must be before EndDate");
     }
 
@@ -140,9 +172,11 @@ exports.createLeaveRequest = async (req, res) => {
         upsert: true,
       });
 
-      const admins = await User.find({ role: "admin" });
+      // Fetch all admins or a specific admin
+      const admins = await User.find({ role: "admin" }); // Assuming 'role' is a field that specifies user roles
       if (admins.length === 0) throw new Error("No admin found!");
 
+      // Send notification to all admins
       admins.forEach(async (admin) => {
         const adminNotificationToken = admin?.notificationToken || "";
 
@@ -164,7 +198,6 @@ exports.createLeaveRequest = async (req, res) => {
     handleError(res, 400, error.message);
   }
 };
-
 
 exports.cancelLeaveRequest = async (req, res) => {
   try {
