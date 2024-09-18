@@ -76,27 +76,6 @@ exports.createLeaveRequest = async (req, res) => {
     leaveEndDate.setDate(leaveEndDate.getDate() - 1);
     const leaveEndDay = leaveEndDate.getDate();
 
-    //  console.log("Current Day:", currentDay);
-    //  console.log("Leave Start Day (after subtracting one day):", leaveStartDay);
-    //  console.log("One Day Before:", oneDayBefore.getDate());
-
-    // Check if the leave start day is equal to the previous day
-    // if (leaveStartDay === oneDayBefore.getDate()) {
-    //   if (!leaveData?.isHalfDay) {
-    //     // Full-day leave condition
-    //     if (currentHour >= 10) {
-    //       throw new Error("Full day leave must be applied before 10 AM");
-    //     }
-    //   } else {
-    //     // Half-day leave condition
-    //     if(leaveData?.isHalfDay === true){
-    //     if (currentHour > 14) {
-    //       throw new Error("Half day leave must be applied before 1 PM");
-    //     }
-    //   }
-    //   }
-    // }
-    // console.log(leaveStartDay, leaveEndDay, currentDay)
     if (
     leaveStartDay < currentDay ||
     leaveEndDay < currentDay
