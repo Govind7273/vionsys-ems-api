@@ -81,21 +81,21 @@ exports.createLeaveRequest = async (req, res) => {
     //  console.log("One Day Before:", oneDayBefore.getDate());
 
     // Check if the leave start day is equal to the previous day
-    if (leaveStartDay === oneDayBefore.getDate()) {
-      if (!leaveData?.isHalfDay) {
-        // Full-day leave condition
-        if (currentHour >= 10) {
-          throw new Error("Full day leave must be applied before 10 AM");
-        }
-      } else {
-        // Half-day leave condition
-        if(leaveData?.isHalfDay === true){
-        if (currentHour > 14) {
-          throw new Error("Half day leave must be applied before 1 PM");
-        }
-      }
-      }
-    }
+    // if (leaveStartDay === oneDayBefore.getDate()) {
+    //   if (!leaveData?.isHalfDay) {
+    //     // Full-day leave condition
+    //     if (currentHour >= 10) {
+    //       throw new Error("Full day leave must be applied before 10 AM");
+    //     }
+    //   } else {
+    //     // Half-day leave condition
+    //     if(leaveData?.isHalfDay === true){
+    //     if (currentHour > 14) {
+    //       throw new Error("Half day leave must be applied before 1 PM");
+    //     }
+    //   }
+    //   }
+    // }
     // console.log(leaveStartDay, leaveEndDay, currentDay)
     if (
     leaveStartDay < currentDay ||
@@ -299,7 +299,7 @@ exports.getleavesHistoryById = async (req, res) => {
 
     // Check if the current date and time is after 2 PM today
     const expirationTime = new Date();
-    expirationTime.setHours(14, 0, 0, 0); // Set to 2 PM today
+    expirationTime.setHours(0, 0, 0, 0); // Set to 2 PM today
 
     // Handle current date leaves
     const useCurrentDateLeaves = await Leaves.find({
@@ -397,7 +397,7 @@ exports.getleaveHistory = async (req, res) => {
 
     // Check if the current date and time is after 2 PM today
     const expirationTime = new Date();
-    expirationTime.setHours(14, 0, 0, 0); // Set to 2 PM today
+    expirationTime.setHours(0, 0, 0, 0); // Set to 2 PM today
 
     // Mark leaves as "Expired" if the current time is past 2 PM
     if (currentDate >= expirationTime) {
