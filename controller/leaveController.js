@@ -364,30 +364,6 @@ exports.getleaveHistory = async (req, res) => {
   }
 };
 
-
-exports.getleaveHistory = async (req, res) => {
-  try {
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0); // Reset time to the start of the day
-
-    // Check for any pending leaves that have expired (leaveStart date < current date)
-    await Leaves.updateMany(
-      {
-        leaveStatus: "Pending",
-        leaveStart: { $lt: currentDate },  // Expired if leave start date is before today
-      },
-      { $set: { leaveStatus: "Expired" } }
-    );
-
-    // Get the leave history of all users
-    const AllLeaves = await getUserHistory();
-    res.status(200).json({ message: "ok", AllLeaves });
-  } catch (error) {
-    handleError(res, 400, error.message);
-  }
-};
-
-
 exports.leaveApprovedByAdmin = async (req, res) => {
   try {
     const { leaveId, userId, note, adminId } = req.body; // Include adminId in the request body
