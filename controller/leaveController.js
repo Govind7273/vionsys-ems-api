@@ -76,6 +76,27 @@ exports.createLeaveRequest = async (req, res) => {
     leaveEndDate.setDate(leaveEndDate.getDate() - 1);
     const leaveEndDay = leaveEndDate.getDate();
 
+    //  console.log("Current Day:", currentDay);
+    //  console.log("Leave Start Day (after subtracting one day):", leaveStartDay);
+    //  console.log("One Day Before:", oneDayBefore.getDate());
+
+    // Check if the leave start day is equal to the previous day
+    // if (leaveStartDay === oneDayBefore.getDate()) {
+    //   if (!leaveData?.isHalfDay) {
+    //     // Full-day leave condition
+    //     if (currentHour >= 10) {
+    //       throw new Error("Full day leave must be applied before 10 AM");
+    //     }
+    //   } else {
+    //     // Half-day leave condition
+    //     if(leaveData?.isHalfDay === true){
+    //     if (currentHour > 14) {
+    //       throw new Error("Half day leave must be applied before 1 PM");
+    //     }
+    //   }
+    //   }
+    // }
+    // console.log(leaveStartDay, leaveEndDay, currentDay)
     if (
     leaveStartDay < currentDay ||
     leaveEndDay < currentDay
@@ -258,7 +279,7 @@ exports.cancelLeaveRequest = async (req, res) => {
 };
 
 
-exports.getleavesHistoryById = async (req, res) => { 
+exports.getleavesHistoryById = async (req, res) => {
   try {
     const userId = req.params.userId;
 
@@ -276,18 +297,18 @@ exports.getleavesHistoryById = async (req, res) => {
     const currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0); // Reset time to the start of the day
 
-    // Check for any pending leaves that have expired (leaveStart date < current date)
-    const expiredLeaves = await Leaves.find({
+    // Find the first expired pending leave (leaveStart < current date)
+    const expiredLeave = await Leaves.findOne({
       user: userId,
       leaveStatus: "Pending",
-      leaveStart: { $lt: currentDate },  // Leaves with a start date before today
+      leaveStart: { $lt: currentDate }, // Leave with start date before today
     });
 
-    // Loop through expired leaves and update their status to "Expired"
-    for (const leave of expiredLeaves) {
-      leave.leaveStatus = "Expired";
-      const leaveTypeField = leave.leaveType.toLowerCase().split(" ").join("");
-      const expiredDays = leave.leaveDays;
+    // If an expired leave exists, update its status to "Expired"
+    if (expiredLeave) {
+      expiredLeave.leaveStatus = "Expired";
+      const leaveTypeField = expiredLeave.leaveType.toLowerCase().split(" ").join("");
+      const expiredDays = expiredLeave.leaveDays;
 
       // Update LeavesCount based on the leave type
       if (leaveTypeField === "unpaidleave") {
@@ -302,7 +323,7 @@ exports.getleavesHistoryById = async (req, res) => {
         );
       }
 
-      await leave.save();
+      await expiredLeave.save();
     }
 
     // Get the leave history of the user
@@ -317,6 +338,32 @@ exports.getleavesHistoryById = async (req, res) => {
     handleError(res, 400, error.message);
   }
 };
+
+exports.getleaveHistory = async (req, res) => {
+  try {
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0); // Reset time to the start of the day
+
+    // Find the first pending leave that has expired (leaveStart < current date)
+    const expiredLeave = await Leaves.findOne({
+      leaveStatus: "Pending",
+      leaveStart: { $lt: currentDate },  // Expired if leave start date is before today
+    });
+
+    // If an expired leave is found, update its status to "Expired"
+    if (expiredLeave) {
+      expiredLeave.leaveStatus = "Expired";
+      await expiredLeave.save();
+    }
+
+    // Get the leave history of all users
+    const AllLeaves = await getUserHistory();
+    res.status(200).json({ message: "ok", AllLeaves });
+  } catch (error) {
+    handleError(res, 400, error.message);
+  }
+};
+
 
 exports.getleaveHistory = async (req, res) => {
   try {
