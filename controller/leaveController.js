@@ -549,43 +549,43 @@ function handleError(res, statusCode, errorMessage) {
  
 //---update leave  count--
  
-// exports.updateLeaveCountAdmin = async (req, res) => {
-//   const { userId } = req.params; // Use 'userId' here
-//   const {
-//       floaterleave,
-//       privilageleave,
-//       sickleave,
-//       casualleave,
-//       unpaidleave,
-//       approvedLeaves,
-//   } = req.body;
+exports.updateLeaveCountAdmin = async (req, res) => {
+  const { userId } = req.params; // Use 'userId' here
+  const {
+      floaterleave,
+      privilageleave,
+      sickleave,
+      casualleave,
+      unpaidleave,
+      approvedLeaves,
+  } = req.body;
  
-//   try {
-//       console.log("Looking for leave record with user ID:", userId); // Check userId
-//       const leaveRecord = await LeavesCount.findOne({ user: userId }); // Use userId here
+  try {
+      console.log("Looking for leave record with user ID:", userId); // Check userId
+      const leaveRecord = await LeavesCount.findOne({ user: userId }); // Use userId here
      
-//       if (!leaveRecord) {
-//           return res.status(404).json({ message: 'Leave record not found' });
-//       }
+      if (!leaveRecord) {
+          return res.status(404).json({ message: 'Leave record not found' });
+      }
  
-//       // Update leave counts, or set to original value or 0 if undefined
-//       leaveRecord.floaterleave = floaterleave !== undefined ? floaterleave : (leaveRecord.floaterleave || 0);
-//       leaveRecord.privilageleave = privilageleave !== undefined ? privilageleave : (leaveRecord.privilageleave || 0);
-//       leaveRecord.sickleave = sickleave !== undefined ? sickleave : (leaveRecord.sickleave || 0);
-//       leaveRecord.casualleave = casualleave !== undefined ? casualleave : (leaveRecord.casualleave || 0);
-//       leaveRecord.unpaidleave = unpaidleave !== undefined ? unpaidleave : (leaveRecord.unpaidleave || 0);
-//       leaveRecord.approvedLeaves = approvedLeaves !== undefined ? approvedLeaves : (leaveRecord.approvedLeaves || 0);
+      // Update leave counts, or set to original value or 0 if undefined
+      leaveRecord.floaterleave = floaterleave !== undefined ? floaterleave : (leaveRecord.floaterleave || 0);
+      leaveRecord.privilageleave = privilageleave !== undefined ? privilageleave : (leaveRecord.privilageleave || 0);
+      leaveRecord.sickleave = sickleave !== undefined ? sickleave : (leaveRecord.sickleave || 0);
+      leaveRecord.casualleave = casualleave !== undefined ? casualleave : (leaveRecord.casualleave || 0);
+      leaveRecord.unpaidleave = unpaidleave !== undefined ? unpaidleave : (leaveRecord.unpaidleave || 0);
+      leaveRecord.approvedLeaves = approvedLeaves !== undefined ? approvedLeaves : (leaveRecord.approvedLeaves || 0);
  
-//       // Save the updated record
-//       await leaveRecord.save();
-//       console.log(leaveRecord);
-//       return res.status(200).json({ message: 'Leave count updated successfully', leaveRecord });
+      // Save the updated record
+      await leaveRecord.save();
+      console.log(leaveRecord);
+      return res.status(200).json({ message: 'Leave count updated successfully', leaveRecord });
  
-//   } catch (error) {
-//       console.error(error);
-//       return res.status(500).json({ message: 'Server error', error: error.message });
-//   }
-// };
+  } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
  
  
 //-------------
