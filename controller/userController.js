@@ -67,75 +67,67 @@ exports.getUser = async (req, res, next) => {
 exports.deleteUser = async (req, res) => {
   try {
     const id = req.params.id;
-
     const user = await User.findByIdAndDelete(id);
-    const response = await removeFromCloudinary(user.profile);
-    if (!response) {
-      throw new Error("user deleted but image is not able to delete");
-    }
 
     if (!user) {
-      throw new Error("Cannot delete. User not found !");
+      throw new Error("Cannot delete. User not found");
+    }
+
+    // Remove profile image if available
+    if (user.profile) {
+      const response = await removeFromCloudinary(user.profile);
+      if (!response) {
+        throw new Error("User deleted, but image could not be removed");
+      }
     }
 
     res.status(200).json({
       status: "success",
-      data: {
-        user,
-      },
+      message: "User successfully deleted",
+      data: { user },
     });
   } catch (error) {
     handleError(res, 404, error.message);
   }
 };
 
+// Update user
 exports.updateUser = async (req, res) => {
   try {
-    console.log("the body =", req.body);
-    let url;
     const user = await User.findById(req.body._id);
-    console.log("the user -", user);
-    if (!req?.file) {
-      url = user.profile;
-    } else {
-      const response = await removeFromCloudinary(user.profile);
-      console.log("File removed From Cloudinary::", response);
-      const imagepath = req?.file.path;
-      url = await uploadOnCloudinary(imagepath);
+
+    if (!user) {
+      throw new Error("User not found");
     }
-    user.passwordConfirm = user.password;
-    user.profile = url;
-    user.firstName = req.body.firstName;
-    user.lastName = req.body.lastName;
-    user.email = req.body.email;
-    user.PerAddress = req.body.PerAddress;
-    user.bloodGroup = req.body.bloodGroup;
-    user.gender = req.body.gender;
-    user.phone = req.body.phone;
-    user.dob = req.body.dob;
-    user.employeeId = req.body.employeeId;
-    user.designation = req.body.designation;
-    user.reportingManager = req.body.reportingManager;
-    user.teamLead = req.body.teamLead;
-    user.doj = req.body.doj;
-    user.personalEmail = req.body.personalEmail;
-    user.TempAddress = req.body.TempAddress;
-    user.role = req.body.role;
+
+    let profileUrl = user.profile;
+
+    // Update profile image if a new file is provided
+    if (req.file) {
+      await removeFromCloudinary(user.profile);
+      profileUrl = await uploadOnCloudinary(req.file.path);
+    }
+
+    // Update only provided fields
+    Object.assign(user, {
+      ...req.body,
+      profile: profileUrl,
+      passwordConfirm: user.password,
+    });
 
     await user.save();
+
     res.status(200).json({
       status: "success",
-      data: {
-        
-        message: "User successfully updated !",
-        user,
-      },
+      message: "User successfully updated",
+      data: { user },
     });
   } catch (error) {
-    console.log(error);
+    console.error("Error updating user:", error);
     handleError(res, 400, error.message);
   }
 };
+
 
 exports.employeeBirthday = async (req, res) => {
   try {
