@@ -15,7 +15,7 @@ const calculateDuration = (loginTime, logoutTime) => {
     const minutes = duration.minutes();
     const totalMinutes = hours * 60 + minutes;
 
-    if (totalMinutes < 360) {
+    if (totalMinutes <= 270 || totalMinutes < 480 ) {
       // Less than 6 hours
       return "Half Day";
     } else {
