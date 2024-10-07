@@ -208,23 +208,24 @@ exports.excelById = async (req, res, next) => {
     const userId = req.params.userId;
     const { Format_startDate, Format_endDate, email } = req.body;
 
-    // Getting attendance of all users
+    // Getting attendance of all users within the provided date range, or for the current day if not provided
     const attendance = await Getattendence(Format_startDate, Format_endDate);
 
-    // getting attendance by userid
+    // Filter attendance by userId
     const filterAttendance = attendance.filter((att) => att._id == userId);
-    const leaves = await getUserHistory(
-      userId,
-      Format_startDate,
-      Format_endDate
-    );
+    
+    // Fetch user's leave history within the same date range
+    const leaves = await getUserHistory(userId, Format_startDate, Format_endDate);
+
     if (!filterAttendance[0]) {
       throw new Error("Attendance for this user not available");
     }
+
+    // Check if the provided email is from the authorized domain
     const isValidEmail = email.includes("@vionsys.com");
     if (!isValidEmail) {
-      // email options
-      options = {
+      // Email options for notifying admin of unauthorized access
+      const options = {
         subject: "Security Alert: Unauthorized Access Attempt",
         email: process.env.EMAIL_RECEIVER,
         message: `<p>Dear Admin,</p>
@@ -233,35 +234,41 @@ exports.excelById = async (req, res, next) => {
         <p>Please review this incident promptly.</p>
         <p>[ Vionsys IT Solution India Pvt. Ltd. ]</p>`,
       };
-      // sending alert email to admin about anauthorized email access
+      // Send alert email to the admin
       await sendEmail(options);
-      throw new AppError(401, "unouthorized email detected");
+      throw new AppError(401, "Unauthorized email detected");
     }
-    // creating excel by userid
 
+    // Create the Excel file with attendance and leave data
     const attendecepath = await CreatExcel(filterAttendance);
     const leavepath = await CreatLeaveExcel(leaves);
     const filepath = { attendecepath, leavepath };
+
+    // Merge attendance and leave Excel files into one
     const mergeexcel = await mergeExcels(attendecepath, leavepath);
 
-    const subject = `Attendance Report of employeeId : ${filterAttendance[0]?.user?.employeeId} - [${Format_startDate}] to [${Format_endDate}]`;
-    const body = `<h1>Dear Admin<h1/>
-     <p> Attached is the attendance report of employeeId : ${filterAttendance[0]?.user?.employeeId} from[${Format_startDate}] to[${Format_endDate}].<p/>`;
+    const subject = `Attendance Report of employeeId : ${filterAttendance[0]?.user?.employeeId} - [${Format_startDate || currentDate}] to [${Format_endDate || currentDate}]`;
+    const body = `<h1>Dear Admin</h1><p>Attached is the attendance report of employeeId: ${filterAttendance[0]?.user?.employeeId} from [${Format_startDate || currentDate}] to [${Format_endDate || currentDate}].</p>`;
 
-    // mailing service
+    // Send the Excel file via email
     await sendExcelMail(subject, body, email, mergeexcel);
 
+    // Clean up generated files
     fs.unlinkSync(filepath.attendecepath);
     fs.unlinkSync(filepath.leavepath);
     fs.unlinkSync(mergeexcel);
+
+    // Return success response
     res.status(200).json({
       message: "User's excel is created and has been sent by mail",
       filepath,
     });
   } catch (error) {
+    // Handle error and send appropriate response
     handleError(res, 401, error.message);
   }
 };
+
 
 exports.adminUpdateAttendance = async (req, res) => {
   try {
