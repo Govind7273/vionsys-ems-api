@@ -1,21 +1,24 @@
 const ExcelJS = require("exceljs");
-const moment = require("moment");
+const moment = require("moment-timezone");
 const fs = require("fs");
 
+// Set the timezone to India (Asia/Kolkata)
+const TIMEZONE = "Asia/Kolkata";
+
 const formatTime = (time) => {
-  return time ? moment(time).format("h:mm A") : ""; // Format time as "10:00 AM"
+  return time ? moment(time).tz(TIMEZONE).format("h:mm A") : ""; // Format time as "10:00 AM"
 };
 
 const calculateDuration = (loginTime, logoutTime) => {
   if (loginTime && logoutTime) {
     const duration = moment.duration(
-      moment(logoutTime).diff(moment(loginTime))
+      moment(logoutTime).tz(TIMEZONE).diff(moment(loginTime).tz(TIMEZONE))
     );
     const hours = duration.hours();
     const minutes = duration.minutes();
     const totalMinutes = hours * 60 + minutes;
 
-    if (totalMinutes <= 270 || totalMinutes < 480 ) {
+    if (totalMinutes < 360) {
       // Less than 6 hours
       return "Half Day";
     } else {
@@ -27,7 +30,7 @@ const calculateDuration = (loginTime, logoutTime) => {
 };
 
 const CreatExcel = async (attendance) => {
-  const currentDate = moment().format("DD-MM-YYYY");
+  const currentDate = moment().tz(TIMEZONE).format("DD-MM-YYYY");
   const filePath = `Attendances_${currentDate}.xlsx`;
   try {
     // Create a new Excel workbook
@@ -48,7 +51,9 @@ const CreatExcel = async (attendance) => {
     // Sort the attendance data by date in ascending order
     attendance.forEach((userAttendance) => {
       userAttendance.attendances.sort(
-        (a, b) => moment(a.date).valueOf() - moment(b.date).valueOf()
+        (a, b) =>
+          moment(a.date).tz(TIMEZONE).valueOf() -
+          moment(b.date).tz(TIMEZONE).valueOf()
       );
     });
 
@@ -73,7 +78,7 @@ const CreatExcel = async (attendance) => {
         const { date, loginTime, logoutTime } = attendance;
 
         // Format date as "DD-MM-YY"
-        const formattedDate = moment(date).format("DD-MM-YY");
+        const formattedDate = moment(date).tz(TIMEZONE).format("DD-MM-YY");
 
         // Push attendance information to corresponding arrays
         dates.push(formattedDate);
