@@ -119,6 +119,14 @@ const userSchema = new mongoose.Schema({
   passwordResetToken: String,
   passwordResetExpires: Date,
   notificationToken: String,
+
+  // Adding document reference array
+  documents: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Document", // Reference to Document model
+    },
+  ],
 });
 
 userSchema.pre("save", async function (next) {
