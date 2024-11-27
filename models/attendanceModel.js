@@ -13,12 +13,18 @@ const attendanceSchema = new mongoose.Schema({
   loginTime: {
     type: Date,
   },
+  loginDevice: {
+    type: String,
+  },
+  logoutDevice: {
+    type: String,
+  },
   logoutTime: {
     type: Date,
   },
   note: {
-    type: String
-  }
+    type: String,
+  },
 });
 
 const Attendance = mongoose.model("Attendance", attendanceSchema);
