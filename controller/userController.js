@@ -128,35 +128,35 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-
 exports.employeeBirthday = async (req, res) => {
   try {
     console.log("hello");
-    const monthNumber = new Date().getMonth();
-    console.log(monthNumber);
+    const monthNumber = new Date().getMonth() + 1;
     const today = new Date();
 
-    if (!monthNumber) {
+    if (!monthNumber || monthNumber < 1 || monthNumber > 12) {
       return res.status(400).json({ message: "Invalid month provided" });
     }
 
     // Calculate the month after today
-    const nextMonth = (today.getMonth() + 2) % 12 || 12; // Handle December case
+    const nextMonth = (monthNumber % 12) + 1; // Handle December to January transition
+    console.log("Next Month (1-based):", nextMonth);
 
     const usersInMonth = await User.find({
       $expr: {
         $and: [
-          { $eq: [{ $month: "$dob" }, monthNumber + 1] },
+          { $eq: [{ $month: "$dob" }, monthNumber] },
           { $gt: [{ $dayOfMonth: "$dob" }, today.getDate()] },
         ],
       },
     });
+    console.log("users in month", usersInMonth);
 
     // Get users whose birthday is today
     const usersToday = await User.find({
       $expr: {
         $and: [
-          { $eq: [{ $month: "$dob" }, today.getMonth() + 1] },
+          { $eq: [{ $month: "$dob" }, monthNumber] },
           { $eq: [{ $dayOfMonth: "$dob" }, today.getDate()] },
         ],
       },
