@@ -25,6 +25,11 @@ const attendanceSchema = new mongoose.Schema({
   note: {
     type: String,
   },
+  shift: {
+    type: String,
+    enum: ["dayShift", "nightShift"],
+    default: "dayShift",
+  },
 });
 
 const Attendance = mongoose.model("Attendance", attendanceSchema);
