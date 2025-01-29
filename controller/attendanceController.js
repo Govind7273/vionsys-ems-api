@@ -8,6 +8,7 @@ const getUserHistory = require("../utils/GetLeaveHistory");
 const CreatLeaveExcel = require("../utils/createLeaveExcel");
 const createCombinedExcel = require("../utils/UserExcel");
 const mergeExcels = require("../utils/UserExcel");
+const returnDateRange = require("../utils/returnDateRange");
 
 function handleError(res, statusCode, errorMessage) {
   return res.status(statusCode).json({
@@ -16,37 +17,49 @@ function handleError(res, statusCode, errorMessage) {
   });
 }
 
-function returnDateRange() {
-  let currentDate = new Date();
+exports.updateAttendance = async (req, res) => {
+  try {
+    const { shift } = req.body;
+    const { startOfDay, endOfDay } = returnDateRange(shift);
 
-  // Set the start and end of the current day
-  let startOfDay = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    currentDate.getDate(),
-    0,
-    0,
-    0,
-    0
-  );
-  let endOfDay = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    currentDate.getDate() + 1,
-    0,
-    0,
-    0,
-    0
-  );
-  return {
-    startOfDay,
-    endOfDay,
-  };
-}
+    console.log("shifts----------", startOfDay, endOfDay);
+    const todayAttendance = await Attendance.findOne({
+      user: req.params.userId,
+      date: {
+        $gte: startOfDay,
+        $lt: endOfDay,
+      },
+    });
+    console.log(todayAttendance);
+    if (todayAttendance?.logoutTime) {
+      throw new Error("You are already checked out for today.");
+    }
+    const attendance = await Attendance.findOneAndUpdate(
+      {
+        user: req.params.userId,
+        date: {
+          $gte: startOfDay,
+          $lt: endOfDay,
+        },
+      },
+      req.body
+    );
+    res.status(200).json({
+      status: "success",
+      data: {
+        attendance,
+      },
+    });
+  } catch (error) {
+    handleError(res, 400, error.message);
+  }
+};
 
 exports.createAttendance = async (req, res) => {
   try {
-    const { startOfDay, endOfDay } = returnDateRange();
+    const { shift } = req.body;
+    const { startOfDay, endOfDay } = returnDateRange(shift);
+    console.log("shifts----------", startOfDay, endOfDay);
     // Check if the user has already logged in for the day
     const existingAttendance = await Attendance.findOne({
       user: req.body.user,
@@ -59,7 +72,6 @@ exports.createAttendance = async (req, res) => {
     // Create new attendance record
     if (!existingAttendance) {
       const attendance = await Attendance.create(req.body);
-      console.log(attendance)
       res.status(200).json({
         status: "success",
         data: {
@@ -92,44 +104,7 @@ exports.getAttendance = async (req, res) => {
 exports.getAttendanceById = async (req, res) => {
   try {
     const userId = req.params.userId;
-    console.log(userId);
     const attendance = await Attendance.find({ user: userId });
-    console.log(attendance);
-    res.status(200).json({
-      status: "success",
-      data: {
-        attendance,
-      },
-    });
-  } catch (error) {
-    handleError(res, 400, error.message);
-  }
-};
-
-exports.updateAttendance = async (req, res) => {
-  try {
-    const { startOfDay, endOfDay } = returnDateRange();
-
-    const todayAttendance = await Attendance.findOne({
-      user: req.params.userId,
-      date: {
-        $gte: startOfDay,
-        $lt: endOfDay,
-      },
-    });
-    if (todayAttendance?.logoutTime) {
-      throw new Error("You are already checked out for today.");
-    }
-    const attendance = await Attendance.findOneAndUpdate(
-      {
-        user: req.params.userId,
-        date: {
-          $gte: startOfDay,
-          $lt: endOfDay,
-        },
-      },
-      req.body
-    );
     res.status(200).json({
       status: "success",
       data: {
@@ -213,9 +188,13 @@ exports.excelById = async (req, res, next) => {
 
     // Filter attendance by userId
     const filterAttendance = attendance.filter((att) => att._id == userId);
-    
+
     // Fetch user's leave history within the same date range
-    const leaves = await getUserHistory(userId, Format_startDate, Format_endDate);
+    const leaves = await getUserHistory(
+      userId,
+      Format_startDate,
+      Format_endDate
+    );
 
     if (!filterAttendance[0]) {
       throw new Error("Attendance for this user not available");
@@ -247,8 +226,16 @@ exports.excelById = async (req, res, next) => {
     // Merge attendance and leave Excel files into one
     const mergeexcel = await mergeExcels(attendecepath, leavepath);
 
-    const subject = `Attendance Report of employeeId : ${filterAttendance[0]?.user?.employeeId} - [${Format_startDate || currentDate}] to [${Format_endDate || currentDate}]`;
-    const body = `<h1>Dear Admin</h1><p>Attached is the attendance report of employeeId: ${filterAttendance[0]?.user?.employeeId} from [${Format_startDate || currentDate}] to [${Format_endDate || currentDate}].</p>`;
+    const subject = `Attendance Report of employeeId : ${
+      filterAttendance[0]?.user?.employeeId
+    } - [${Format_startDate || currentDate}] to [${
+      Format_endDate || currentDate
+    }]`;
+    const body = `<h1>Dear Admin</h1><p>Attached is the attendance report of employeeId: ${
+      filterAttendance[0]?.user?.employeeId
+    } from [${Format_startDate || currentDate}] to [${
+      Format_endDate || currentDate
+    }].</p>`;
 
     // Send the Excel file via email
     await sendExcelMail(subject, body, email, mergeexcel);
@@ -269,7 +256,6 @@ exports.excelById = async (req, res, next) => {
   }
 };
 
-
 exports.adminUpdateAttendance = async (req, res) => {
   try {
     const { userId: user } = req.params;
@@ -279,7 +265,8 @@ exports.adminUpdateAttendance = async (req, res) => {
     if (!date || (!loginTime && !logoutTime)) {
       return res.status(400).json({
         status: "fail",
-        message: "Date, and at least one of loginTime or logoutTime are required",
+        message:
+          "Date, and at least one of loginTime or logoutTime are required",
       });
     }
 
@@ -335,7 +322,6 @@ exports.adminUpdateAttendance = async (req, res) => {
     }
   }
 };
-
 
 // exports.excelUser = async (req, res, next) => {
 //   try {
