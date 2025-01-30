@@ -58,7 +58,7 @@ exports.updateAttendance = async (req, res) => {
 exports.createAttendance = async (req, res) => {
   try {
     const { shift } = req.body;
-    const { startOfDay, endOfDay } = returnDateRange(shift);
+    const { startOfDay, endOfDay } = returnDateRange();
     console.log("shifts----------", startOfDay, endOfDay);
     // Check if the user has already logged in for the day
     const existingAttendance = await Attendance.findOne({
