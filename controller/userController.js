@@ -104,8 +104,10 @@ exports.updateUser = async (req, res) => {
 
     // Update profile image if a new file is provided
     if (req.file) {
-      await removeFromCloudinary(user.profile);
-      profileUrl = await uploadOnCloudinary(req.file.path);
+      if (user.profile) {
+        await removeFromCloudinary(user.profile);
+      }
+      profileUrl = await uploadOnCloudinary(req.file.path, "vionsysEmsProfile");
     }
 
     // Update only provided fields

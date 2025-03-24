@@ -54,6 +54,12 @@ exports.addDocument = async (req, res) => {
       return handleError(res, 400, "Document file is required");
     }
 
+    const folderName = "vionsysEMSDocuments";
+    // Upload file to Cloudinary and get secure_url and public_id
+    const uploadResult = await uploadOnCloudinary(req.file.path, folderName);
+    console.log("File path for upload:", req.file.path);
+    console.log("Cloudinary upload result:", uploadResult);
+
     const folderName = "DocumentEMS";
     const uploadResult = await uploadOnCloudinary(req.file.path, folderName).catch((err) => {
       console.error("Cloudinary upload error:", err);
