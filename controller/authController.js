@@ -47,7 +47,7 @@ const createSendToken = (user, statusCode, res) => {
 exports.signup = async (req, res, next) => {
   const imagepath = req?.file.path;
   try {
-    const url = await uploadOnCloudinary(imagepath);
+    const url = await uploadOnCloudinary(imagepath, "vionsysEmsProfile");
     const newUser = await User.create({
       ...req.body,
       profile: url,
