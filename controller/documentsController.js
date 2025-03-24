@@ -14,24 +14,24 @@ function handleError(res, statusCode, errorMessage) {
   });
 }
 
-//Get all Documents
+// ✅ Get all Documents for a User
 exports.getAllDocumentsUser = async (req, res) => {
   try {
     const { employeeId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
+      return handleError(res, 400, "Invalid employee ID format");
+    }
+
     const employeeObjectId = new mongoose.Types.ObjectId(employeeId);
     const documents = await Documents.find({ user: employeeObjectId });
-    if (!documents || documents.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "Employee not found or no documents available" });
-    }
+
     res.status(200).json({
       status: "success",
       data: documents,
     });
   } catch (error) {
-    console.log(error);
-    handleError(res, 404, error.message);
+    handleError(res, 500, error.message);
   }
 };
 
@@ -41,115 +41,140 @@ exports.addDocument = async (req, res) => {
     const { employeeId } = req.params;
     const { title } = req.body;
 
-    // Check if the employee exists
-    const employee = await User.findById(employeeId);
-    if (!employee) {
-      return res.status(404).json({ message: "Employee not found" });
+    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
+      return handleError(res, 400, "Invalid employee ID format");
     }
 
-    // Check if the file exists in the request
-    if (!req.file) {
-      return res.status(400).json({ message: "Document image is required" });
+    const employee = await User.findById(employeeId);
+    if (!employee) {
+      return handleError(res, 404, "Employee not found");
     }
+
+    if (!req.file) {
+      return handleError(res, 400, "Document file is required");
+    }
+
     const folderName = "vionsysEMSDocuments";
     // Upload file to Cloudinary and get secure_url and public_id
     const uploadResult = await uploadOnCloudinary(req.file.path, folderName);
     console.log("File path for upload:", req.file.path);
     console.log("Cloudinary upload result:", uploadResult);
 
-    // Ensure the upload result contains both secure_url and public_id
-    //|| !uploadResult.public_id
+    const folderName = "DocumentEMS";
+    const uploadResult = await uploadOnCloudinary(req.file.path, folderName).catch((err) => {
+      console.error("Cloudinary upload error:", err);
+      return null;
+    });
     if (!uploadResult) {
-      return res.status(500).json({ message: "Cloudinary upload failed" });
+      return handleError(res, 500, "Cloudinary upload failed");
     }
 
-    // Create a new document entry in the database with Cloudinary info
+    // Ensure HTTPS URL
+    const secureImageURL = uploadResult.replace(/^http:\/\//, "https://");
+
     const document = new Documents({
       user: employeeId,
-      title: title, // Ensure the title is provided
-      imageURL: uploadResult, // Store the Cloudinary URL
-      //cloudinaryId: uploadResult.public_id // Store the Cloudinary public ID
+      title: title,
+      imageURL: secureImageURL,
     });
 
-    console.log("DataDocument: ", document); // Log the document before saving
-    await document.save();
+    await document.save().catch((err) => {
+      console.error("Error saving document:", err);
+      return handleError(res, 500, "Failed to save document");
+    });
 
-    // Add the document to the employee’s document list
+    // Add document to the employee’s list
     employee.documents.push(document._id);
     await employee.save();
 
     res.status(201).json({ message: "Document added successfully", document });
   } catch (error) {
-    console.error("Error during document upload:", error.message);
-    res.status(500).json({ message: "Failed to add document" });
+    handleError(res, 500, error.message);
   }
 };
 
-// Update an existing document for an employee
+// Update an existing document
 exports.updateDocument = async (req, res) => {
   try {
     const { documentId } = req.params;
     const { title } = req.body;
-    console.log("Dcument : ", documentId);
-    // Find the document to be updated
+
+    if (!mongoose.Types.ObjectId.isValid(documentId)) {
+      return handleError(res, 400, "Invalid document ID format");
+    }
+
     const document = await Documents.findById(documentId);
     if (!document) {
-      return res.status(404).json({ message: "Document not found" });
+      return handleError(res, 404, "Document not found");
     }
+<<<<<<< HEAD
     const folderName = "vionsysEMSDocuments";
     // Update Cloudinary image if a new file is uploaded
+=======
+
+    const folderName = "DocumentEMS";
+
+>>>>>>> b1a31a2c26b951d74c9dc577ed7e9f5d8e47ad8e
     if (req.file) {
-      // Remove old image from Cloudinary
-      console.log(document.imageURL);
-      await removeFromCloudinary(document.imageURL, folderName);
+      await removeFromCloudinary(document.imageURL, folderName).catch((err) =>
+        console.error("Cloudinary delete error:", err)
+      );
 
-      // Upload new image to Cloudinary
-      const result = await uploadOnCloudinary(req.file.path, folderName);
+      const uploadResult = await uploadOnCloudinary(req.file.path, folderName).catch((err) => {
+        console.error("Cloudinary upload error:", err);
+        return null;
+      });
 
-      // Update document with the new image URL and Cloudinary public_id
-      document.imageURL = result;
+      if (!uploadResult) {
+        return handleError(res, 500, "Cloudinary upload failed");
+      }
+
+      document.imageURL = uploadResult.replace(/^http:\/\//, "https://");
     }
 
-    // Update other fields like title
     if (title) {
       document.title = title;
     }
+
     await document.save();
-    res
-      .status(200)
-      .json({ message: "Document updated successfully", document });
+    res.status(200).json({ message: "Document updated successfully", document });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to update document" });
+    handleError(res, 500, error.message);
   }
 };
 
-// Delete a document for an employee
+// Delete a document
 exports.deleteDocument = async (req, res) => {
   try {
     const { employeeId, documentId } = req.params;
 
-    // Find the document to be deleted
+    if (!mongoose.Types.ObjectId.isValid(employeeId) || !mongoose.Types.ObjectId.isValid(documentId)) {
+      return handleError(res, 400, "Invalid ID format");
+    }
+
     const document = await Documents.findById(documentId);
     if (!document) {
-      return res.status(404).json({ message: "Document not found" });
+      return handleError(res, 404, "Document not found");
     }
+<<<<<<< HEAD
     const folderName = "vionsysEMSDocuments";
+=======
 
-    console.log("Cloudinary Delete File : ", document.imageURL);
-    // Delete the document image from Cloudinary
-    await removeFromCloudinary(document.imageURL, folderName);
-    // Remove the document from the database
+    const folderName = "DocumentEMS";
+>>>>>>> b1a31a2c26b951d74c9dc577ed7e9f5d8e47ad8e
+
+    await removeFromCloudinary(document.imageURL, folderName).catch((err) =>
+      console.error("Cloudinary delete error:", err)
+    );
+
     await Documents.findByIdAndDelete(documentId);
 
-    // Optionally, remove the document reference from the employee's document list (assuming this field exists in User model)
     await User.findByIdAndUpdate(employeeId, {
       $pull: { documents: documentId },
     });
 
     res.status(200).json({ message: "Document deleted successfully" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to delete document" });
+    handleError(res, 500, error.message);
   }
 };
