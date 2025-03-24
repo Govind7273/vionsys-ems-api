@@ -96,7 +96,7 @@ exports.updateDocument = async (req, res) => {
     if (!document) {
       return res.status(404).json({ message: "Document not found" });
     }
-    const folderName = "DocumentEMS";
+    const folderName = "vionsysEMSDocuments";
     // Update Cloudinary image if a new file is uploaded
     if (req.file) {
       // Remove old image from Cloudinary
@@ -134,7 +134,7 @@ exports.deleteDocument = async (req, res) => {
     if (!document) {
       return res.status(404).json({ message: "Document not found" });
     }
-    const folderName = "DocumentEMS";
+    const folderName = "vionsysEMSDocuments";
 
     console.log("Cloudinary Delete File : ", document.imageURL);
     // Delete the document image from Cloudinary
