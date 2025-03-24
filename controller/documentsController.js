@@ -57,14 +57,7 @@ exports.addDocument = async (req, res) => {
     const folderName = "vionsysEMSDocuments";
     // Upload file to Cloudinary and get secure_url and public_id
     const uploadResult = await uploadOnCloudinary(req.file.path, folderName);
-    console.log("File path for upload:", req.file.path);
-    console.log("Cloudinary upload result:", uploadResult);
 
-    const folderName = "DocumentEMS";
-    const uploadResult = await uploadOnCloudinary(req.file.path, folderName).catch((err) => {
-      console.error("Cloudinary upload error:", err);
-      return null;
-    });
     if (!uploadResult) {
       return handleError(res, 500, "Cloudinary upload failed");
     }
@@ -107,15 +100,18 @@ exports.updateDocument = async (req, res) => {
     if (!document) {
       return handleError(res, 404, "Document not found");
     }
-
-    const folderName = "DocumentEMS";
+    const folderName = "vionsysEMSDocuments";
+    // Update Cloudinary image if a new file is uploaded
 
     if (req.file) {
       await removeFromCloudinary(document.imageURL, folderName).catch((err) =>
         console.error("Cloudinary delete error:", err)
       );
 
-      const uploadResult = await uploadOnCloudinary(req.file.path, folderName).catch((err) => {
+      const uploadResult = await uploadOnCloudinary(
+        req.file.path,
+        folderName
+      ).catch((err) => {
         console.error("Cloudinary upload error:", err);
         return null;
       });
@@ -132,7 +128,9 @@ exports.updateDocument = async (req, res) => {
     }
 
     await document.save();
-    res.status(200).json({ message: "Document updated successfully", document });
+    res
+      .status(200)
+      .json({ message: "Document updated successfully", document });
   } catch (error) {
     handleError(res, 500, error.message);
   }
@@ -143,7 +141,10 @@ exports.deleteDocument = async (req, res) => {
   try {
     const { employeeId, documentId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(employeeId) || !mongoose.Types.ObjectId.isValid(documentId)) {
+    if (
+      !mongoose.Types.ObjectId.isValid(employeeId) ||
+      !mongoose.Types.ObjectId.isValid(documentId)
+    ) {
       return handleError(res, 400, "Invalid ID format");
     }
 
@@ -152,7 +153,7 @@ exports.deleteDocument = async (req, res) => {
       return handleError(res, 404, "Document not found");
     }
 
-    const folderName = "DocumentEMS";
+    const folderName = "vionsysEMSDocuments";
 
     await removeFromCloudinary(document.imageURL, folderName).catch((err) =>
       console.error("Cloudinary delete error:", err)
